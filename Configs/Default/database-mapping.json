@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0",
+  "description": "Database table mappings for entities",
+  "tables": {
+    "User": {
+      "tableName": "[dbo].[Users]",
+      "alias": "r",
+      "allowedFields": ["Id", "Name", "Email", "Active", "CreatedDate", "Age"],
+      "defaultFields": ["Id", "Name", "Email"]
+    },
+    "Order": {
+      "tableName": "[dbo].[Orders]",
+      "alias": "o",
+      "allowedFields": ["OrderId", "UserId", "Total", "Status", "OrderDate"],
+      "defaultFields": ["OrderId", "Total", "Status"]
+    },
+    "Product": {
+      "tableName": "[dbo].[Products]",
+      "alias": "p",
+      "allowedFields": ["ProductId", "ProductName", "Price", "Stock", "Category"],
+      "defaultFields": ["ProductId", "ProductName", "Price"]
+    },
+    "ResourceNavigationRule": {
+      "tableName": "[dbo].[UM_ResourceNavigationRules]",
+      "alias": "rn",
+      "allowedFields": ["Id", "Name", "Description", "CreatedDate"],
+      "defaultFields": ["Id", "Name"]
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0",
+  "description": "Operator definitions and SQL mappings",
+  "operators": {
+    "eq": {
+      "sqlOperator": "=",
+      "conditionType": "comparison",
+      "description": "Equal to"
+    },
+    "neq": {
+      "sqlOperator": "!=",
+      "conditionType": "comparison",
+      "description": "Not equal to"
+    },
+    "gt": {
+      "sqlOperator": ">",
+      "conditionType": "comparison",
+      "description": "Greater than"
+    },
+    "ge": {
+      "sqlOperator": ">=",
+      "conditionType": "comparison",
+      "description": "Greater than or equal to"
+    },
+    "lt": {
+      "sqlOperator": "<",
+      "conditionType": "comparison",
+      "description": "Less than"
+    },
+    "le": {
+      "sqlOperator": "<=",
+      "conditionType": "comparison",
+      "description": "Less than or equal to"
+    },
+    "in": {
+      "sqlOperator": "IN",
+      "conditionType": "set",
+      "description": "In set"
+    },
+    "notin": {
+      "sqlOperator": "NOT IN",
+      "conditionType": "set",
+      "description": "Not in set"
+    },
+    "like": {
+      "sqlOperator": "LIKE",
+      "conditionType": "pattern",
+      "description": "Pattern match (user provides wildcards)"
+    },
+    "contains": {
+      "sqlOperator": "LIKE",
+      "conditionType": "pattern",
+      "patternTransform": "wrap",
+      "description": "Contains substring (%value%)"
+    },
+    "startswith": {
+      "sqlOperator": "LIKE",
+      "conditionType": "pattern",
+      "patternTransform": "suffix",
+      "description": "Starts with string (value%)"
+    },
+    "endswith": {
+      "sqlOperator": "LIKE",
+      "conditionType": "pattern",
+      "patternTransform": "prefix",
+      "description": "Ends with string (%value)"
+    },
+    "isnull": {
+      "sqlOperator": "IS NULL",
+      "conditionType": "null",
+      "description": "Is null"
+    },
+    "isnotnull": {
+      "sqlOperator": "IS NOT NULL",
+      "conditionType": "null",
+      "description": "Is not null"
+    }
+  }
+}

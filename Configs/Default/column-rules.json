@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0",
+  "description": "Column mapping rules and allowed operators per field",
+  "entities": {
+    "User": {
+      "Id": {
+        "dbColumn": "Id",
+        "dataType": "int",
+        "allowedOperators": ["eq", "neq", "in", "notin", "gt", "ge", "lt", "le"],
+        "nullable": false
+      },
+      "Name": {
+        "dbColumn": "Name_L1",
+        "dataType": "nvarchar",
+        "allowedOperators": ["eq", "neq", "contains", "startswith", "endswith", "like"],
+        "nullable": false,
+        "maxLength": 255
+      },
+      "Email": {
+        "dbColumn": "Email",
+        "dataType": "nvarchar",
+        "allowedOperators": ["eq", "neq", "contains", "like"],
+        "nullable": true,
+        "maxLength": 255
+      },
+      "Active": {
+        "dbColumn": "Active",
+        "dataType": "bit",
+        "allowedOperators": ["eq"],
+        "nullable": false
+      },
+      "CreatedDate": {
+        "dbColumn": "CreatedDate",
+        "dataType": "datetime",
+        "allowedOperators": ["eq", "neq", "gt", "ge", "lt", "le"],
+        "nullable": false
+      },
+      "Age": {
+        "dbColumn": "Age",
+        "dataType": "int",
+        "allowedOperators": ["eq", "neq", "gt", "ge", "lt", "le", "in"],
+        "nullable": true
+      }
+    },
+    "Order": {
+      "OrderId": {
+        "dbColumn": "OrderId",
+        "dataType": "int",
+        "allowedOperators": ["eq", "neq", "in", "notin", "gt", "ge", "lt", "le"],
+        "nullable": false
+      },
+      "UserId": {
+        "dbColumn": "UserId",
+        "dataType": "int",
+        "allowedOperators": ["eq", "neq", "in", "notin"],
+        "nullable": false
+      },
+      "Total": {
+        "dbColumn": "Total",
+        "dataType": "decimal",
+        "allowedOperators": ["eq", "neq", "gt", "ge", "lt", "le"],
+        "nullable": false
+      },
+      "Status": {
+        "dbColumn": "Status",
+        "dataType": "nvarchar",
+        "allowedOperators": ["eq", "neq", "in", "notin"],
+        "nullable": false,
+        "maxLength": 50
+      },
+      "OrderDate": {
+        "dbColumn": "OrderDate",
+        "dataType": "datetime",
+        "allowedOperators": ["eq", "neq", "gt", "ge", "lt", "le"],
+        "nullable": false
+      }
+    },
+    "Product": {
+      "ProductId": {
+        "dbColumn": "ProductId",
+        "dataType": "int",
+        "allowedOperators": ["eq", "neq", "in", "notin"],
+        "nullable": false
+      },
+      "ProductName": {
+        "dbColumn": "ProductName",
+        "dataType": "nvarchar",
+        "allowedOperators": ["eq", "neq", "contains", "startswith", "endswith", "like"],
+        "nullable": false,
+        "maxLength": 255
+      },
+      "Price": {
+        "dbColumn": "Price",
+        "dataType": "decimal",
+        "allowedOperators": ["eq", "neq", "gt", "ge", "lt", "le"],
+        "nullable": false
+      },
+      "Stock": {
+        "dbColumn": "Stock",
+        "dataType": "int",
+        "allowedOperators": ["eq", "neq", "gt", "ge", "lt", "le"],
+        "nullable": false
+      },
+      "Category": {
+        "dbColumn": "Category",
+        "dataType": "nvarchar",
+        "allowedOperators": ["eq", "neq", "in", "notin"],
+        "nullable": true,
+        "maxLength": 100
+      }
+    }
+  }
+}
