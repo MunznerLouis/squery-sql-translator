@@ -1,184 +1,153 @@
-# Lexer.ps1
-# Tokenizes SQuery URL query strings into structured tokens
+﻿# Lexer.ps1
+# Tokenizes SQuery SQL-like string into a flat token stream
+#
+# SQuery grammar:
+#   [join Entity alias]* [top N]? select fields [where condition]? [order by fields]?
+#
+# Input example (decoded):
+#   "join Role r join WorkflowInstance w top 5 select Id, r.DisplayName where (OwnerType=2015) order by Id desc"
 
 class SQueryToken {
-    [string]$Type              # 'select', 'filter', 'sort', 'page', 'limit', 'offset'
-    [string]$TopKey            # e.g., 'filter'
-    [string]$NestedKey         # e.g., 'name' from 'filter[name]'
-    [string]$Operator          # e.g., 'contains', 'eq', 'gt'
-    [object]$Value             # The actual value (can be string, array, etc.)
-    [int]$Position             # Position in query string for error reporting
+    [string]$Type    # KEYWORD, IDENTIFIER, NUMBER, STRING, OPERATOR, LPAREN, RPAREN, COMMA, DOT, NULL
+    [string]$Value   # Raw token value
+    [int]$Position
 
-    SQueryToken([string]$type, [string]$topKey, [string]$nestedKey,
-                [string]$operator, [object]$value, [int]$position) {
+    SQueryToken([string]$type, [string]$value, [int]$position) {
         $this.Type = $type
-        $this.TopKey = $topKey
-        $this.NestedKey = $nestedKey
-        $this.Operator = $operator
         $this.Value = $value
         $this.Position = $position
+    }
+
+    [string] ToString() {
+        return "[$($this.Type):'$($this.Value)']"
     }
 }
 
 class SQueryLexer {
-    [string]$QueryString
-    [SQueryToken[]]$Tokens
+    [string]$DecodedInput
+    [int]$Pos
+    [System.Collections.ArrayList]$Tokens
 
-    SQueryLexer([string]$queryString) {
-        $this.QueryString = $queryString
-        $this.Tokens = @()
+    # Keywords (case-insensitive matching)
+    hidden static [string[]]$Keywords = @(
+        'join', 'of', 'type', 'top', 'select', 'where',
+        'order', 'by', 'and', 'or', 'not', 'asc', 'desc'
+    )
+
+    # Accepts a pre-decoded SQuery string (caller handles URL-decoding)
+    SQueryLexer([string]$sqQuery) {
+        $this.DecodedInput = $sqQuery
+        $this.Pos = 0
+        $this.Tokens = [System.Collections.ArrayList]::new()
     }
 
-    [SQueryToken[]] Tokenize() {
-        if ([string]::IsNullOrWhiteSpace($this.QueryString)) {
-            return @()
-        }
+    [array] Tokenize() {
+        $this.Tokens.Clear()
+        $sqInput = $this.DecodedInput
+        $len = $sqInput.Length
+        $this.Pos = 0
 
-        # Parse URL query string into key-value pairs
-        $pairs = $this.QueryString.Split('&')
-        $position = 0
+        while ($this.Pos -lt $len) {
+            $ch = $sqInput[$this.Pos]
 
-        foreach ($pair in $pairs) {
-            if ([string]::IsNullOrWhiteSpace($pair)) {
-                $position += $pair.Length + 1
+            # Skip whitespace
+            if ([char]::IsWhiteSpace($ch)) {
+                $this.Pos++
                 continue
             }
 
-            $parts = $pair.Split('=', 2)
-            if ($parts.Count -ne 2) {
-                Write-Warning "Skipping malformed pair at position $position`: $pair"
-                $position += $pair.Length + 1
+            # Two-char operators: !=  >=  <=  %=
+            if ($this.Pos + 1 -lt $len) {
+                $two = $sqInput.Substring($this.Pos, 2)
+                if ($two -eq '!=' -or $two -eq '>=' -or $two -eq '<=' -or $two -eq '%=') {
+                    $null = $this.Tokens.Add([SQueryToken]::new('OPERATOR', $two, $this.Pos))
+                    $this.Pos += 2
+                    continue
+                }
+            }
+
+            # Single-char tokens
+            if ($ch -eq '(') { $null = $this.Tokens.Add([SQueryToken]::new('LPAREN',   '(', $this.Pos)); $this.Pos++; continue }
+            if ($ch -eq ')') { $null = $this.Tokens.Add([SQueryToken]::new('RPAREN',   ')', $this.Pos)); $this.Pos++; continue }
+            if ($ch -eq ',') { $null = $this.Tokens.Add([SQueryToken]::new('COMMA',    ',', $this.Pos)); $this.Pos++; continue }
+            if ($ch -eq '.') { $null = $this.Tokens.Add([SQueryToken]::new('DOT',      '.', $this.Pos)); $this.Pos++; continue }
+            if ($ch -eq '=') { $null = $this.Tokens.Add([SQueryToken]::new('OPERATOR', '=', $this.Pos)); $this.Pos++; continue }
+            if ($ch -eq '>') { $null = $this.Tokens.Add([SQueryToken]::new('OPERATOR', '>', $this.Pos)); $this.Pos++; continue }
+            if ($ch -eq '<') { $null = $this.Tokens.Add([SQueryToken]::new('OPERATOR', '<', $this.Pos)); $this.Pos++; continue }
+            if ($ch -eq '!') { $null = $this.Tokens.Add([SQueryToken]::new('OPERATOR', '!', $this.Pos)); $this.Pos++; continue }
+            # Standalone % means LIKE/contains in some variants
+            if ($ch -eq '%') { $null = $this.Tokens.Add([SQueryToken]::new('OPERATOR', '%=', $this.Pos)); $this.Pos++; continue }
+
+            # Single-quoted string
+            if ($ch -eq "'") {
+                $start = $this.Pos
+                $this.Pos++
+                $sb = [System.Text.StringBuilder]::new()
+                while ($this.Pos -lt $len -and $sqInput[$this.Pos] -ne "'") {
+                    $null = $sb.Append($sqInput[$this.Pos])
+                    $this.Pos++
+                }
+                $this.Pos++ # skip closing quote
+                $null = $this.Tokens.Add([SQueryToken]::new('STRING', $sb.ToString(), $start))
                 continue
             }
 
-            $key = [System.Web.HttpUtility]::UrlDecode($parts[0])
-            $value = [System.Web.HttpUtility]::UrlDecode($parts[1])
-
-            # Parse key for bracket notation: filter[name] or sort[date]
-            if ($key -match '^(\w+)\[([^\]]+)\]$') {
-                $topKey = $Matches[1]
-                $nestedKey = $Matches[2]
-
-                # Parse value for operator: contains:john
-                $operator = 'eq'  # default operator
-                $actualValue = $value
-
-                if ($value -match '^(\w+):(.+)$') {
-                    $operator = $Matches[1]
-                    $actualValue = $Matches[2]
+            # Double-quoted string
+            if ($ch -eq '"') {
+                $start = $this.Pos
+                $this.Pos++
+                $sb = [System.Text.StringBuilder]::new()
+                while ($this.Pos -lt $len -and $sqInput[$this.Pos] -ne '"') {
+                    $null = $sb.Append($sqInput[$this.Pos])
+                    $this.Pos++
                 }
+                $this.Pos++ # skip closing quote
+                $null = $this.Tokens.Add([SQueryToken]::new('STRING', $sb.ToString(), $start))
+                continue
+            }
 
-                # Handle comma-separated values for IN operator
-                if ($operator -in @('in', 'notin')) {
-                    $actualValue = $actualValue.Split(',') | ForEach-Object { $_.Trim() }
+            # Numbers (digits only; negative numbers handled by operator '-' + number)
+            if ([char]::IsDigit($ch)) {
+                $start = $this.Pos
+                while ($this.Pos -lt $len -and ([char]::IsDigit($sqInput[$this.Pos]) -or $sqInput[$this.Pos] -eq '.')) {
+                    $this.Pos++
                 }
+                $num = $sqInput.Substring($start, $this.Pos - $start)
+                $null = $this.Tokens.Add([SQueryToken]::new('NUMBER', $num, $start))
+                continue
+            }
 
-                $token = [SQueryToken]::new(
-                    $topKey,      # Type: 'filter', 'sort'
-                    $topKey,      # TopKey
-                    $nestedKey,   # NestedKey: field name
-                    $operator,    # Operator
-                    $actualValue, # Value
-                    $position     # Position
-                )
-
-                $this.Tokens += $token
-
-            } elseif ($key -eq 'sort') {
-                # Handle sort without brackets: sort=-CreatedDate,Name
-                # Split by comma for multiple sort fields
-                $sortFields = $value.Split(',')
-
-                foreach ($sortField in $sortFields) {
-                    $sortField = $sortField.Trim()
-
-                    # Determine direction from prefix
-                    $direction = 'asc'
-                    $fieldName = $sortField
-
-                    if ($sortField.StartsWith('-')) {
-                        $direction = 'desc'
-                        $fieldName = $sortField.Substring(1)
-                    } elseif ($sortField.StartsWith('+')) {
-                        $direction = 'asc'
-                        $fieldName = $sortField.Substring(1)
+            # Identifiers and keywords (letters, digits, underscore, colon for typed joins like "Workflow_Directory_FR_User:Directory_FR_User")
+            if ([char]::IsLetter($ch) -or $ch -eq '_') {
+                $start = $this.Pos
+                while ($this.Pos -lt $len) {
+                    $c = $sqInput[$this.Pos]
+                    if ([char]::IsLetterOrDigit($c) -or $c -eq '_' -or $c -eq ':') {
+                        $this.Pos++
+                    } else {
+                        break
                     }
-
-                    $token = [SQueryToken]::new(
-                        'sort',       # Type
-                        'sort',       # TopKey
-                        $fieldName,   # NestedKey: field name
-                        $null,        # Operator (not used for sort)
-                        $direction,   # Value: 'asc' or 'desc'
-                        $position     # Position
-                    )
-
-                    $this.Tokens += $token
                 }
+                $word = $sqInput.Substring($start, $this.Pos - $start)
+                $wordLower = $word.ToLower()
 
-            } elseif ($key -eq 'select') {
-                # Handle select: select=Id,Name,Email
-                $actualValue = $value.Split(',') | ForEach-Object { $_.Trim() }
-
-                $token = [SQueryToken]::new(
-                    'select',     # Type
-                    'select',     # TopKey
-                    $null,        # NestedKey
-                    $null,        # Operator
-                    $actualValue, # Value: array of field names
-                    $position     # Position
-                )
-
-                $this.Tokens += $token
-
-            } elseif ($key -in @('limit', 'offset', 'page')) {
-                # Handle pagination parameters
-                $type = $key.ToLower()
-
-                $token = [SQueryToken]::new(
-                    $type,        # Type
-                    $key,         # TopKey
-                    $null,        # NestedKey
-                    $null,        # Operator
-                    $value,       # Value
-                    $position     # Position
-                )
-
-                $this.Tokens += $token
-
-            } else {
-                # Generic key-value pair
-                $token = [SQueryToken]::new(
-                    $key.ToLower(), # Type
-                    $key,           # TopKey
-                    $null,          # NestedKey
-                    $null,          # Operator
-                    $value,         # Value
-                    $position       # Position
-                )
-
-                $this.Tokens += $token
+                if ($wordLower -eq 'null') {
+                    $null = $this.Tokens.Add([SQueryToken]::new('NULL', 'null', $start))
+                } elseif ($wordLower -eq 'true' -or $wordLower -eq 'false') {
+                    $null = $this.Tokens.Add([SQueryToken]::new('BOOLEAN', $wordLower, $start))
+                } elseif ($wordLower -in [SQueryLexer]::Keywords) {
+                    $null = $this.Tokens.Add([SQueryToken]::new('KEYWORD', $wordLower, $start))
+                } else {
+                    $null = $this.Tokens.Add([SQueryToken]::new('IDENTIFIER', $word, $start))
+                }
+                continue
             }
 
-            $position += $pair.Length + 1
+            # Unknown - skip with warning
+            Write-Warning "SQueryLexer: unknown character '$ch' at position $($this.Pos)"
+            $this.Pos++
         }
 
-        return $this.Tokens
-    }
-
-    [string] TokensToString() {
-        $result = ""
-        foreach ($token in $this.Tokens) {
-            $result += "Token[$($token.Type)]"
-            if ($token.NestedKey) {
-                $result += "[$($token.NestedKey)]"
-            }
-            if ($token.Operator) {
-                $result += " Op:$($token.Operator)"
-            }
-            $result += " = $($token.Value)"
-            $result += "`n"
-        }
-        return $result
+        return $this.Tokens.ToArray()
     }
 }

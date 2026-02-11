@@ -1,4 +1,4 @@
-# ConfigLoader.ps1
+﻿# ConfigLoader.ps1
 # Loads and validates JSON configuration files for SQuery-SQL-Translator
 
 class ConfigLoader {
@@ -71,10 +71,10 @@ class ConfigLoader {
             throw "operator.json must contain 'operators' key"
         }
 
-        # Cross-validate: ensure all entities in column-rules exist in database-mapping
+        # Cross-validate: entities in column-rules should exist in database-mapping (warning only)
         foreach ($entity in $this.ColumnRules.entities.Keys) {
             if (-not $this.DatabaseMapping.tables.ContainsKey($entity)) {
-                throw "Entity '$entity' in column-rules.json not found in database-mapping.json"
+                Write-Warning "ConfigLoader: entity '$entity' in column-rules.json not found in database-mapping.json"
             }
         }
 
@@ -121,60 +121,33 @@ class ConfigLoader {
         throw "Entity '$entityName' not found in database-mapping.json"
     }
 
-    [hashtable] GetColumnMapping([string]$entityName, [string]$fieldName) {
-        if ($this.ColumnRules.entities.ContainsKey($entityName)) {
-            $entity = $this.ColumnRules.entities[$entityName]
-            if ($entity.ContainsKey($fieldName)) {
-                return $entity[$fieldName]
-            }
-        }
-        throw "Field '$fieldName' not found for entity '$entityName' in column-rules.json"
-    }
-
-    [hashtable] GetOperatorMapping([string]$operatorName) {
-        if ($this.Operators.operators.ContainsKey($operatorName)) {
-            return $this.Operators.operators[$operatorName]
-        }
-        throw "Operator '$operatorName' not found in operator.json"
-    }
-
     [bool] IsFieldAllowed([string]$entityName, [string]$fieldName) {
         try {
             $tableMapping = $this.GetTableMapping($entityName)
+            # "*" wildcard means all fields are allowed
+            if ('*' -in $tableMapping.allowedFields) { return $true }
             return $fieldName -in $tableMapping.allowedFields
         } catch {
             return $false
         }
     }
 
-    [bool] IsOperatorAllowedForField([string]$entityName, [string]$fieldName, [string]$operator) {
-        try {
-            $columnMapping = $this.GetColumnMapping($entityName, $fieldName)
-            return $operator -in $columnMapping.allowedOperators
-        } catch {
-            return $false
+    # Returns navigation property definition for an entity, or $null if not found.
+    # join-patterns.json structure:
+    #   { "navigationProperties": { "EntityName": { "NavProp": { targetTable, targetEntity, localKey, foreignKey } } } }
+    [hashtable] GetNavProp([string]$entityName, [string]$navPropName) {
+        if ($null -eq $this.JoinPatterns -or -not $this.JoinPatterns.ContainsKey('navigationProperties')) {
+            return $null
         }
-    }
-
-    [string[]] GetAllowedFields([string]$entityName) {
-        try {
-            $tableMapping = $this.GetTableMapping($entityName)
-            return $tableMapping.allowedFields
-        } catch {
-            return @()
+        $navProps = $this.JoinPatterns.navigationProperties
+        if (-not $navProps.ContainsKey($entityName)) {
+            return $null
         }
-    }
-
-    [string[]] GetDefaultFields([string]$entityName) {
-        try {
-            $tableMapping = $this.GetTableMapping($entityName)
-            if ($tableMapping.ContainsKey('defaultFields')) {
-                return $tableMapping.defaultFields
-            }
-            return @()
-        } catch {
-            return @()
+        $entityNavProps = $navProps[$entityName]
+        if (-not $entityNavProps.ContainsKey($navPropName)) {
+            return $null
         }
+        return $entityNavProps[$navPropName]
     }
 
     # Helper method to convert PSCustomObject to Hashtable recursively

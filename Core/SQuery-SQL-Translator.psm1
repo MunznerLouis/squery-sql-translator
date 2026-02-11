@@ -1,4 +1,4 @@
-# SQuery-SQL-Translator PowerShell Module
+﻿# SQuery-SQL-Translator PowerShell Module
 # Bidirectional translator between SQuery and SQL
 
 # Get module directory
@@ -45,21 +45,20 @@ Path to the directory containing configuration JSON files. If not specified, use
 If specified, only validates the query without generating SQL. Returns validation results.
 
 .EXAMPLE
-$result = Convert-SQueryToSql -Url "http://api/User?filter[Name]=contains:john&select=Id,Name,Email"
+$url = "http://localhost:5000/api/ProvisioningPolicy/AssignedSingleRole?api-version=1.0&squery=join+Role+r+top+5+select+Id,+StartDate,+r.DisplayName+where+(OwnerType%3D2015)+order+by+Id+desc&QueryRootEntityType=AssignedSingleRole"
+$result = Convert-SQueryToSql -Url $url
 Write-Host $result.Query
-# Output: SELECT r.Id, r.Name_L1, r.Email FROM [dbo].[Users] r WHERE r.Name_L1 LIKE @p1
+# Output: SELECT TOP 5 t.Id, t.StartDate, r.DisplayName
+#         FROM [dbo].[UP_AssignedSingleRoles] t
+#         LEFT JOIN [dbo].[UP_SingleRoles] r ON t.RoleId = r.Id
+#         WHERE t.OwnerType = @p1
+#         ORDER BY t.Id DESC
 
 $result.Parameters
-# Output: @{ p1 = "%john%" }
+# Output: @{ p1 = 2015 }
 
 .EXAMPLE
-$result = Convert-SQueryToSql -QueryString "filter[Active]=1&sort=-CreatedDate&limit=10" -RootEntity "User"
-# Converts: SELECT r.Id, r.Name_L1, r.Email FROM [dbo].[Users] r WHERE r.Active = @p1 ORDER BY r.CreatedDate DESC OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY
-
-.EXAMPLE
-# Complex query with multiple filters
-$url = "http://api/Order?filter[Status]=in:pending,shipped&filter[Total]=gt:100&sort=-OrderDate&limit=50"
-$result = Convert-SQueryToSql -Url $url
+$result = Convert-SQueryToSql -QueryString "select Id, DisplayName where ParentId=null order by Id asc" -RootEntity "Category"
 
 .EXAMPLE
 # Validate query without generating SQL
@@ -105,34 +104,51 @@ function Convert-SQueryToSql {
 
     process {
         try {
-            # Extract query string from URL if needed
+            # Extract squery= and QueryRootEntityType= parameters from URL
             if ($PSCmdlet.ParameterSetName -eq 'FromUrl') {
                 try {
                     $uri = [System.Uri]$Url
-                    $QueryString = $uri.Query.TrimStart('?')
+                    $rawQueryString = $uri.Query.TrimStart('?')
 
-                    # Try to infer RootEntity from path
-                    $pathSegments = $uri.AbsolutePath.Trim('/').Split('/')
-                    if ($pathSegments.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($pathSegments[-1])) {
-                        $RootEntity = $pathSegments[-1]
-                        Write-Verbose "Inferred root entity: $RootEntity"
+                    # Parse individual query parameters
+                    $parsedParams = [System.Web.HttpUtility]::ParseQueryString($rawQueryString)
+
+                    # Prefer QueryRootEntityType= param; fall back to last URL path segment
+                    if (-not [string]::IsNullOrWhiteSpace($parsedParams['QueryRootEntityType'])) {
+                        $RootEntity = $parsedParams['QueryRootEntityType']
+                        Write-Verbose "Root entity from QueryRootEntityType: $RootEntity"
                     } else {
-                        throw "Cannot infer root entity from URL. Please specify -RootEntity parameter explicitly."
+                        $pathSegments = $uri.AbsolutePath.Trim('/').Split('/')
+                        if ($pathSegments.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($pathSegments[-1])) {
+                            $RootEntity = $pathSegments[-1]
+                            Write-Verbose "Root entity inferred from URL path: $RootEntity"
+                        } else {
+                            throw "Cannot determine root entity. URL must contain QueryRootEntityType= param or -RootEntity must be supplied."
+                        }
                     }
+
+                    # Extract squery= value (ParseQueryString already URL-decodes it)
+                    if (-not [string]::IsNullOrWhiteSpace($parsedParams['squery'])) {
+                        $QueryString = $parsedParams['squery']
+                        Write-Verbose "Extracted squery parameter"
+                    } else {
+                        throw "No squery= parameter found in URL. Expected format: ...?squery=join+...+select+...&QueryRootEntityType=EntityName"
+                    }
+
                 } catch [System.UriFormatException] {
                     throw "Invalid URL format: $Url"
                 }
             }
 
             if ([string]::IsNullOrWhiteSpace($QueryString)) {
-                Write-Warning "Query string is empty. Generating basic SELECT query."
+                Write-Warning "SQuery string is empty. Generating basic SELECT query."
             }
 
-            Write-Verbose "Query String: $QueryString"
+            Write-Verbose "SQuery: $QueryString"
             Write-Verbose "Root Entity: $RootEntity"
 
-            # LEXER: Tokenize
-            Write-Verbose "Tokenizing query string..."
+            # LEXER: Tokenize the SQuery string
+            Write-Verbose "Tokenizing SQuery string..."
             $lexer = [SQueryLexer]::new($QueryString)
             $tokens = $lexer.Tokenize()
             Write-Verbose "Generated $($tokens.Count) tokens"
@@ -141,7 +157,7 @@ function Convert-SQueryToSql {
             Write-Verbose "Parsing tokens into AST..."
             $parser = [SQueryParser]::new($tokens, $RootEntity)
             $ast = $parser.Parse()
-            Write-Verbose "AST created with $($ast.Filters.Count) filters, $($ast.Select.Count) select clauses, $($ast.Sort.Count) sorts"
+            Write-Verbose "AST: $($ast.ToString())"
 
             # VALIDATOR: Validate against configuration
             Write-Verbose "Validating query..."

@@ -1,4 +1,4 @@
-# Module manifest for SQuery-SQL-Translator
+﻿# Module manifest for SQuery-SQL-Translator
 
 @{
     # Script module or binary module file associated with this manifest
@@ -23,7 +23,7 @@
     Copyright = '(c) 2026. All rights reserved.'
 
     # Description of the functionality provided by this module
-    Description = 'Bidirectional translator between SQuery (URL query string format) and SQL with full configurability. Convert SQuery URLs to parameterized SQL queries and vice versa. Fully configurable via JSON to adapt to any database schema.'
+    Description = 'Translates SQuery (SQL-like URL query language used by Brainware/Netwrix Identity Manager) to parameterized SQL. Parses join/select/where/order-by clauses and resolves JOIN navigation properties via JSON configuration.'
 
     # Minimum version of the PowerShell engine required by this module
     PowerShellVersion = '5.1'
@@ -76,22 +76,17 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-## v1.0.0 - Initial Release
+## v1.0.0
 
-Features:
-- SQuery to SQL conversion with full parsing pipeline
-- Parameterized SQL queries for security
-- JSON-based configuration system
-- Whitelist validation for fields and operators
-- Support for 14 operators (comparison, pattern, set, null)
-- Comprehensive type validation
-- Pagination support (LIMIT/OFFSET)
+SQuery grammar supported:
+  [join Entity alias]* [join Entity of type SubType alias]* [join a.NavProp alias]*
+  [top N]? select field1, alias.field2, ... [where expr]? [order by field asc|desc, ...]*
 
-Operators Supported:
-- Comparison: eq, neq, gt, ge, lt, le
-- Set: in, notin
-- Pattern: like, contains, startswith, endswith
-- Null: isnull, isnotnull
+WHERE operators: = != > >= < <= %=/%=% (LIKE) = null (!= null)
+AND / OR / NOT / parentheses supported.
+
+Config-driven JOIN resolution via join-patterns.json.
+All WHERE values fully parameterized (@p1, @p2, ...).
 '@
         }
     }

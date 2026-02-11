@@ -1,125 +1,29 @@
-# Transformer.ps1
-# Transforms QueryAST to SQL with parameterized queries (SECURITY CRITICAL)
+﻿# Transformer.ps1
+# Transforms SQueryAST to parameterized SQL (SECURITY CRITICAL - all values parameterized)
 
-# SqlCondition Base Class and Implementations
-
-class SqlCondition {
-    [string]$Field
-    [string]$Operator
-    [object]$Value
-    [string]$ParamName
-
-    [string] ToSQL() {
-        # Override in derived classes
-        throw "ToSQL must be implemented in derived class"
-    }
-}
-
-class ComparisonCondition : SqlCondition {
-    ComparisonCondition([string]$field, [string]$op, [object]$value, [string]$paramName) {
-        $this.Field = $field
-        $this.Operator = $op
-        $this.Value = $value
-        $this.ParamName = $paramName
-    }
-
-    [string] ToSQL() {
-        $sqlOp = switch ($this.Operator) {
-            'eq' { '=' }
-            'neq' { '!=' }
-            'gt' { '>' }
-            'ge' { '>=' }
-            'lt' { '<' }
-            'le' { '<=' }
-            default { '=' }
-        }
-        return "$($this.Field) $sqlOp @$($this.ParamName)"
-    }
-}
-
-class LikeCondition : SqlCondition {
-    LikeCondition([string]$field, [string]$op, [string]$value, [string]$paramName) {
-        $this.Field = $field
-        $this.Operator = $op
-        $this.Value = $value
-        $this.ParamName = $paramName
-    }
-
-    [string] ToSQL() {
-        return "$($this.Field) LIKE @$($this.ParamName)"
-    }
-
-    [string] GetPatternValue() {
-        $pattern = switch ($this.Operator) {
-            'contains' { "%$($this.Value)%" }
-            'startswith' { "$($this.Value)%" }
-            'endswith' { "%$($this.Value)" }
-            'like' { $this.Value }  # User provides pattern
-            default { $this.Value }
-        }
-        return $pattern
-    }
-}
-
-class InCondition : SqlCondition {
-    InCondition([string]$field, [string]$op, [array]$values, [string]$paramName) {
-        $this.Field = $field
-        $this.Operator = $op
-        $this.Value = $values
-        $this.ParamName = $paramName
-    }
-
-    [string] ToSQL() {
-        $paramList = @()
-        for ($i = 0; $i -lt $this.Value.Count; $i++) {
-            $paramList += "@$($this.ParamName)$i"
-        }
-        $params = $paramList -join ', '
-
-        if ($this.Operator -eq 'notin') {
-            return "$($this.Field) NOT IN ($params)"
-        }
-        return "$($this.Field) IN ($params)"
-    }
-}
-
-class NullCondition : SqlCondition {
-    NullCondition([string]$field, [string]$op) {
-        $this.Field = $field
-        $this.Operator = $op
-        $this.ParamName = $null  # No parameter needed for NULL checks
-    }
-
-    [string] ToSQL() {
-        if ($this.Operator -eq 'isnotnull') {
-            return "$($this.Field) IS NOT NULL"
-        }
-        return "$($this.Field) IS NULL"
-    }
-}
-
-# SQL Query Builder with Fluent API
+# -- SQL Query Builder ----------------------------------------------------------
+# Fluent builder that assembles SELECT / FROM / JOIN / WHERE / ORDER BY / LIMIT
 
 class SqlQueryBuilder {
     [string[]]$SelectFields
     [string]$TableName
     [string]$TableAlias
-    [SqlCondition[]]$WhereConditions
-    [hashtable]$SortFields
-    [int]$LimitValue
+    [System.Collections.ArrayList]$JoinClauses    # pre-built JOIN SQL strings
+    [string]$WhereSQL                             # pre-built WHERE SQL fragment
+    [System.Collections.ArrayList]$OrderFields   # @{Field; Direction} ordered list
+    [int]$TopValue                                # for SELECT TOP N
+    [int]$LimitValue                              # for OFFSET/FETCH
     [int]$OffsetValue
     [hashtable]$Parameters
-    [int]$ParamCounter
 
     SqlQueryBuilder() {
         $this.SelectFields = @()
-        $this.WhereConditions = @()
-        $this.SortFields = @{}
-        $this.Parameters = @{}
-        $this.ParamCounter = 0
-        $this.TableAlias = 'r'  # Default alias
-        $this.LimitValue = 0
-        $this.OffsetValue = 0
+        $this.JoinClauses  = [System.Collections.ArrayList]::new()
+        $this.OrderFields  = [System.Collections.ArrayList]::new()
+        $this.TopValue     = 0
+        $this.LimitValue   = 0
+        $this.OffsetValue  = 0
+        $this.Parameters   = @{}
     }
 
     [SqlQueryBuilder] AddSelect([string[]]$fields) {
@@ -128,18 +32,28 @@ class SqlQueryBuilder {
     }
 
     [SqlQueryBuilder] FromTable([string]$table, [string]$alias) {
-        $this.TableName = $table
+        $this.TableName  = $table
         $this.TableAlias = $alias
         return $this
     }
 
-    [SqlQueryBuilder] AddWhere([SqlCondition]$condition) {
-        $this.WhereConditions += $condition
+    [SqlQueryBuilder] AddJoin([string]$joinSql) {
+        $null = $this.JoinClauses.Add($joinSql)
+        return $this
+    }
+
+    [SqlQueryBuilder] SetWhere([string]$whereSql) {
+        $this.WhereSQL = $whereSql
         return $this
     }
 
     [SqlQueryBuilder] AddOrderBy([string]$field, [string]$direction) {
-        $this.SortFields[$field] = $direction
+        $null = $this.OrderFields.Add(@{ Field = $field; Direction = $direction })
+        return $this
+    }
+
+    [SqlQueryBuilder] SetTop([int]$top) {
+        $this.TopValue = $top
         return $this
     }
 
@@ -153,193 +67,249 @@ class SqlQueryBuilder {
         return $this
     }
 
-    [string] GetNextParamName() {
-        $this.ParamCounter++
-        return "p$($this.ParamCounter)"
-    }
-
     [hashtable] Build() {
-        # SELECT clause
+        # SELECT clause - TOP N goes here for SQL Server
+        $topClause    = if ($this.TopValue -gt 0) { "TOP $($this.TopValue) " } else { "" }
         $selectClause = if ($this.SelectFields.Count -gt 0) {
-            "SELECT " + ($this.SelectFields -join ', ')
+            "SELECT $topClause" + ($this.SelectFields -join ', ')
         } else {
-            "SELECT *"
+            "SELECT $($topClause)*"
         }
 
         # FROM clause
         $fromClause = "FROM $($this.TableName) $($this.TableAlias)"
 
-        # WHERE clause
-        $whereClause = ""
-        if ($this.WhereConditions.Count -gt 0) {
-            $whereParts = @()
-            foreach ($condition in $this.WhereConditions) {
-                $whereParts += $condition.ToSQL()
-
-                # Add parameters
-                if ($condition.ParamName) {
-                    if ($condition -is [InCondition]) {
-                        # Handle IN conditions with multiple parameters
-                        for ($i = 0; $i -lt $condition.Value.Count; $i++) {
-                            $this.Parameters["$($condition.ParamName)$i"] = $condition.Value[$i]
-                        }
-                    } elseif ($condition -is [LikeCondition]) {
-                        # Handle LIKE conditions with pattern transformation
-                        $this.Parameters[$condition.ParamName] = $condition.GetPatternValue()
-                    } else {
-                        $this.Parameters[$condition.ParamName] = $condition.Value
-                    }
-                }
-            }
-            $whereClause = "WHERE " + ($whereParts -join ' AND ')
-        }
-
-        # ORDER BY clause
+        # ORDER BY
         $orderClause = ""
-        if ($this.SortFields.Count -gt 0) {
-            $orderParts = @()
-            foreach ($field in $this.SortFields.Keys) {
-                $direction = $this.SortFields[$field]
-                $orderParts += "$field $direction"
+        if ($this.OrderFields.Count -gt 0) {
+            $orderParts = [System.Collections.ArrayList]::new()
+            foreach ($item in $this.OrderFields) {
+                $null = $orderParts.Add("$($item.Field) $($item.Direction)")
             }
-            $orderClause = "ORDER BY " + ($orderParts -join ', ')
+            $orderClause = "ORDER BY " + ($orderParts.ToArray() -join ', ')
         }
 
-        # LIMIT/OFFSET clause (using OFFSET-FETCH for SQL Server)
+        # OFFSET/FETCH (only when no TOP is set)
         $limitClause = ""
-        if ($this.OffsetValue -gt 0 -or $this.LimitValue -gt 0) {
-            # SQL Server requires ORDER BY for OFFSET-FETCH
-            if ($this.SortFields.Count -eq 0) {
-                # Add a default sort if none specified
+        if ($this.TopValue -eq 0 -and ($this.OffsetValue -gt 0 -or $this.LimitValue -gt 0)) {
+            if ([string]::IsNullOrWhiteSpace($orderClause)) {
                 $orderClause = "ORDER BY (SELECT NULL)"
             }
-
             $limitClause = "OFFSET $($this.OffsetValue) ROWS"
             if ($this.LimitValue -gt 0) {
                 $limitClause += " FETCH NEXT $($this.LimitValue) ROWS ONLY"
             }
         }
 
-        # Build final query
-        $queryParts = @($selectClause, $fromClause, $whereClause, $orderClause, $limitClause) |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-        $query = $queryParts -join "`n"
+        # Assemble all parts
+        $parts = [System.Collections.ArrayList]::new()
+        $null = $parts.Add($selectClause)
+        $null = $parts.Add($fromClause)
+        foreach ($j in $this.JoinClauses) { $null = $parts.Add($j) }
+        if (-not [string]::IsNullOrWhiteSpace($this.WhereSQL)) { $null = $parts.Add("WHERE $($this.WhereSQL)") }
+        if (-not [string]::IsNullOrWhiteSpace($orderClause))   { $null = $parts.Add($orderClause) }
+        if (-not [string]::IsNullOrWhiteSpace($limitClause))   { $null = $parts.Add($limitClause) }
+
+        $query = $parts.ToArray() -join "`n"
 
         return @{
-            Query = $query
+            Query      = $query
             Parameters = $this.Parameters
         }
     }
 }
 
-# Transformer Class
+# -- Transformer ----------------------------------------------------------------
+# Walks SQueryAST and populates SqlQueryBuilder, building parameterized SQL
 
 class SQueryTransformer {
-    [object]$AST
-    [object]$Config
+    [object]$AST            # SQueryAST
+    [object]$Config         # ConfigLoader
+    [int]$ParamCounter
+    [hashtable]$Parameters
+    [hashtable]$AliasToEntity   # alias → entity-name for already-resolved joins
 
     SQueryTransformer([object]$ast, [object]$config) {
-        $this.AST = $ast
-        $this.Config = $config
+        $this.AST           = $ast
+        $this.Config        = $config
+        $this.ParamCounter  = 0
+        $this.Parameters    = @{}
+        $this.AliasToEntity = @{}
     }
+
+    [string] NextParamName() {
+        $this.ParamCounter++
+        return "p$($this.ParamCounter)"
+    }
+
+    # -- Entry point -----------------------------------------------------------
 
     [SqlQueryBuilder] Transform() {
         $builder = [SqlQueryBuilder]::new()
+        $builder.Parameters = $this.Parameters
 
-        # Get table mapping
+        # Root entity → FROM
         $tableMapping = $this.Config.GetTableMapping($this.AST.RootEntity)
-        $builder.FromTable($tableMapping.tableName, $tableMapping.alias)
+        $rootAlias    = $tableMapping.alias
+        $builder.FromTable($tableMapping.tableName, $rootAlias)
 
-        # Transform SELECT
-        if ($this.AST.Select.Count -gt 0) {
-            $selectFields = $this.TransformSelect()
+        # Track the root entity alias
+        $this.AliasToEntity[$rootAlias] = $this.AST.RootEntity
+
+        # JOINs
+        foreach ($joinNode in $this.AST.Joins) {
+            $joinSql = $this.TransformJoin($joinNode, $rootAlias)
+            if (-not [string]::IsNullOrWhiteSpace($joinSql)) {
+                $builder.AddJoin($joinSql)
+            }
+        }
+
+        # SELECT
+        if ($this.AST.Select.Length -gt 0) {
+            $selectFields = $this.TransformSelect($rootAlias)
             $builder.AddSelect($selectFields)
-        } else {
-            # Use default fields if specified in config
-            $defaultFields = $this.Config.GetDefaultFields($this.AST.RootEntity)
-            if ($defaultFields.Count -gt 0) {
-                $transformedDefaults = $this.TransformFieldNames($defaultFields, $tableMapping.alias)
-                $builder.AddSelect($transformedDefaults)
-            }
         }
 
-        # Transform WHERE conditions
-        foreach ($filterNode in $this.AST.Filters) {
-            $condition = $this.TransformFilter($filterNode, $builder)
-            $builder.AddWhere($condition)
+        # WHERE
+        if ($null -ne $this.AST.Where) {
+            $whereSql = $this.TransformWhereExpr($this.AST.Where, $rootAlias)
+            $builder.SetWhere($whereSql)
         }
 
-        # Transform ORDER BY
-        foreach ($sortNode in $this.AST.Sort) {
-            $dbField = $this.TransformFieldName($sortNode.Field, $tableMapping.alias)
-            $builder.AddOrderBy($dbField, $sortNode.Direction.ToUpper())
+        # ORDER BY
+        foreach ($sortNode in $this.AST.OrderBy) {
+            $field = $this.ResolveField($sortNode.Field, $rootAlias)
+            $builder.AddOrderBy($field, $sortNode.Direction)
         }
 
-        # Transform LIMIT/OFFSET
-        if ($this.AST.Page) {
-            if ($this.AST.Page.Limit -gt 0) {
-                $builder.SetLimit($this.AST.Page.Limit)
-            }
-            if ($this.AST.Page.Offset -gt 0) {
-                $builder.SetOffset($this.AST.Page.Offset)
-            }
+        # TOP
+        if ($this.AST.Top -gt 0) {
+            $builder.SetTop($this.AST.Top)
         }
 
         return $builder
     }
 
-    [string[]] TransformSelect() {
-        $tableMapping = $this.Config.GetTableMapping($this.AST.RootEntity)
-        $alias = $tableMapping.alias
-        $fields = @()
+    # -- JOIN resolution -------------------------------------------------------
+    # join EntityPath [of type TypeFilter] alias
+    #
+    # EntityPath can be:
+    #   "Role"                  → nav prop on root entity
+    #   "r.Policy"              → nav prop on alias "r"
+    #   "Entity:TypeFilter"     → colon-notation typed join (same as "of type")
 
-        foreach ($selectNode in $this.AST.Select) {
-            foreach ($field in $selectNode.Fields) {
-                $fields += $this.TransformFieldName($field, $alias)
-            }
+    [string] TransformJoin([object]$joinNode, [string]$rootAlias) {
+        $entityPath  = $joinNode.EntityPath
+        $alias       = $joinNode.Alias
+
+        # Resolve parent alias and nav-prop name from the entity path
+        $parentAlias = $rootAlias
+        $navPropName = $entityPath
+
+        if ($entityPath -match '\.') {
+            # Chained: "r.Policy" → parent="r", nav="Policy"
+            $dotIdx      = $entityPath.IndexOf('.')
+            $parentAlias = $entityPath.Substring(0, $dotIdx)
+            $navPropName = $entityPath.Substring($dotIdx + 1)
         }
 
-        return $fields
-    }
-
-    [string] TransformFieldName([string]$apiFieldName, [string]$alias) {
-        $columnMapping = $this.Config.GetColumnMapping($this.AST.RootEntity, $apiFieldName)
-        return "$alias.$($columnMapping.dbColumn)"
-    }
-
-    [string[]] TransformFieldNames([string[]]$apiFieldNames, [string]$alias) {
-        $result = @()
-        foreach ($fieldName in $apiFieldNames) {
-            $result += $this.TransformFieldName($fieldName, $alias)
-        }
-        return $result
-    }
-
-    [SqlCondition] TransformFilter([object]$filterNode, [SqlQueryBuilder]$builder) {
-        $tableMapping = $this.Config.GetTableMapping($this.AST.RootEntity)
-        $dbField = $this.TransformFieldName($filterNode.Field, $tableMapping.alias)
-        $operatorMapping = $this.Config.GetOperatorMapping($filterNode.Operator)
-        $paramName = $builder.GetNextParamName()
-
-        # Create appropriate condition based on operator type
-        $condition = switch ($operatorMapping.conditionType) {
-            'comparison' {
-                [ComparisonCondition]::new($dbField, $filterNode.Operator, $filterNode.Value, $paramName)
-            }
-            'pattern' {
-                [LikeCondition]::new($dbField, $filterNode.Operator, $filterNode.Value, $paramName)
-            }
-            'set' {
-                [InCondition]::new($dbField, $filterNode.Operator, $filterNode.Value, $paramName)
-            }
-            'null' {
-                [NullCondition]::new($dbField, $filterNode.Operator)
-            }
-            default {
-                throw "Unknown condition type: $($operatorMapping.conditionType)"
-            }
+        # Colon syntax: "Workflow_Directory_FR_User:Directory_FR_User"
+        # Strip the type-filter suffix to get the navigation property name
+        if ($navPropName -match ':') {
+            $navPropName = $navPropName.Substring(0, $navPropName.IndexOf(':'))
         }
 
-        return $condition
+        # Resolve parent entity name
+        $parentEntity = $this.AST.RootEntity
+        if ($this.AliasToEntity.ContainsKey($parentAlias)) {
+            $parentEntity = $this.AliasToEntity[$parentAlias]
+        }
+
+        # Look up navigation property in config
+        $navProp = $this.Config.GetNavProp($parentEntity, $navPropName)
+        if ($null -eq $navProp) {
+            Write-Warning "SQueryTransformer: no navigation property '$navPropName' defined for entity '$parentEntity' (join alias '$alias')"
+            # Track the alias anyway so chained joins can reference it
+            $this.AliasToEntity[$alias] = $navPropName
+            return $null
+        }
+
+        # Build JOIN SQL
+        $joinType = if ($navProp.ContainsKey('joinType')) { $navProp.joinType } else { 'LEFT' }
+        $joinSql  = "$joinType JOIN $($navProp.targetTable) $alias ON $parentAlias.$($navProp.localKey) = $alias.$($navProp.foreignKey)"
+
+        # Track alias → target entity
+        $targetEntity = if ($navProp.ContainsKey('targetEntity')) { $navProp.targetEntity } else { $navPropName }
+        $this.AliasToEntity[$alias] = $targetEntity
+
+        return $joinSql
+    }
+
+    # -- SELECT ----------------------------------------------------------------
+    # Unqualified fields get the root-entity alias prefix; aliased fields pass through.
+
+    [string[]] TransformSelect([string]$rootAlias) {
+        $result = [System.Collections.ArrayList]::new()
+        foreach ($field in $this.AST.Select) {
+            if ($field -match '\.') {
+                $null = $result.Add($field)             # already "alias.Column"
+            } else {
+                $null = $result.Add("$rootAlias.$field") # prefix with root alias
+            }
+        }
+        return $result.ToArray()
+    }
+
+    # -- Field resolution ------------------------------------------------------
+
+    [string] ResolveField([string]$field, [string]$rootAlias) {
+        if ($field -match '\.') { return $field }
+        return "$rootAlias.$field"
+    }
+
+    # -- WHERE tree → SQL ------------------------------------------------------
+
+    [string] TransformWhereExpr([object]$expr, [string]$rootAlias) {
+        switch ($expr.ExprType) {
+            'compare' {
+                return $this.TransformCompareExpr($expr, $rootAlias)
+            }
+            'logical' {
+                $leftSql  = $this.TransformWhereExpr($expr.Left,  $rootAlias)
+                $rightSql = $this.TransformWhereExpr($expr.Right, $rootAlias)
+                return "($leftSql $($expr.LogOp) $rightSql)"
+            }
+            'not' {
+                $childSql = $this.TransformWhereExpr($expr.Child, $rootAlias)
+                return "NOT ($childSql)"
+            }
+        }
+        throw "SQueryTransformer: unknown expression type '$($expr.ExprType)'"
+    }
+
+    [string] TransformCompareExpr([object]$expr, [string]$rootAlias) {
+        $field = $this.ResolveField($expr.Field, $rootAlias)
+        $op    = $expr.Op
+        $value = $expr.Value
+
+        # NULL comparisons become IS NULL / IS NOT NULL
+        if ($null -eq $value) {
+            if ($op -eq '=')  { return "$field IS NULL" }
+            if ($op -eq '!=') { return "$field IS NOT NULL" }
+            return "$field IS NULL"
+        }
+
+        # Boolean → convert to 0/1 for SQL Server bit columns
+        if ($value -is [bool]) {
+            $sqlValue   = if ($value) { 1 } else { 0 }
+            $paramName  = $this.NextParamName()
+            $this.Parameters[$paramName] = $sqlValue
+            return "$field $op @$paramName"
+        }
+
+        # All other values - parameterize to prevent SQL injection
+        $paramName = $this.NextParamName()
+        $this.Parameters[$paramName] = $value
+        return "$field $op @$paramName"
     }
 }

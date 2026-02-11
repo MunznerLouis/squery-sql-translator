@@ -1,210 +1,395 @@
-# Parser.ps1
-# Parses SQuery tokens into an Abstract Syntax Tree (AST)
+﻿# Parser.ps1
+# Parses SQuery flat token stream into an Abstract Syntax Tree (AST)
+#
+# Grammar:
+#   [join EntityPath [of type TypeFilter] alias]*
+#   [top N]?
+#   select field1, alias.field2, ...
+#   [where expr]?
+#   [order by field [asc|desc], ...]?
+#
+# Where expr:
+#   expr    ::= andExpr (OR andExpr)*
+#   andExpr ::= notExpr (AND notExpr)*
+#   notExpr ::= NOT notExpr | primary
+#   primary ::= '(' expr ')' | field op value
 
-# AST Node Classes
+# -- Join Node ------------------------------------------------------------------
 
-class SQueryNode {
-    [string]$NodeType  # Base class for all AST nodes
+class JoinNode {
+    [string]$EntityPath   # "Role", "r.Policy", "WorkflowInstance.Workflow"
+    [string]$TypeFilter   # "Directory_FR_User" from "of type Directory_FR_User" (or $null)
+    [string]$Alias        # "r", "rp", "WorkflowInstance"
 }
 
-class SelectNode : SQueryNode {
-    [string[]]$Fields  # ['Id', 'Name', 'Email']
+# -- Sort Node ------------------------------------------------------------------
 
-    SelectNode([string[]]$fields) {
-        $this.NodeType = 'Select'
-        $this.Fields = $fields
+class SortNode {
+    [string]$Field
+    [string]$Direction    # 'ASC' or 'DESC'
+}
+
+# -- Where Expression Nodes -----------------------------------------------------
+
+class WhereExpr {
+    [string]$ExprType     # 'compare', 'logical', 'not'
+}
+
+class CompareExpr : WhereExpr {
+    [string]$Field        # "OwnerType", "r.FullName", "p.Type"
+    [string]$Op           # '=', '!=', '>', '<', '>=', '<='
+    [object]$Value        # number, string, $null, boolean
+
+    CompareExpr([string]$field, [string]$op, [object]$value) {
+        $this.ExprType = 'compare'
+        $this.Field    = $field
+        $this.Op       = $op
+        $this.Value    = $value
     }
 }
 
-class FilterNode : SQueryNode {
-    [string]$Field     # 'Name'
-    [string]$Operator  # 'contains'
-    [object]$Value     # 'john' or array for IN
+class LogicalExpr : WhereExpr {
+    [object]$Left         # WhereExpr
+    [string]$LogOp        # 'AND' or 'OR'
+    [object]$Right        # WhereExpr
 
-    FilterNode([string]$field, [string]$operator, [object]$value) {
-        $this.NodeType = 'Filter'
-        $this.Field = $field
-        $this.Operator = $operator
-        $this.Value = $value
+    LogicalExpr([object]$left, [string]$logOp, [object]$right) {
+        $this.ExprType = 'logical'
+        $this.Left     = $left
+        $this.LogOp    = $logOp
+        $this.Right    = $right
     }
 }
 
-class SortNode : SQueryNode {
-    [string]$Field      # 'CreatedDate'
-    [string]$Direction  # 'asc' or 'desc'
+class NotExpr : WhereExpr {
+    [object]$Child        # WhereExpr
 
-    SortNode([string]$field, [string]$direction) {
-        $this.NodeType = 'Sort'
-        $this.Field = $field
-        $this.Direction = $direction
+    NotExpr([object]$child) {
+        $this.ExprType = 'not'
+        $this.Child    = $child
     }
 }
 
-class PageNode : SQueryNode {
-    [int]$Limit   # 50
-    [int]$Offset  # 0
+# -- Main AST -------------------------------------------------------------------
 
-    PageNode([int]$limit, [int]$offset) {
-        $this.NodeType = 'Page'
-        $this.Limit = $limit
-        $this.Offset = $offset
-    }
-}
+class SQueryAST {
+    [string]$RootEntity
+    [System.Collections.ArrayList]$Joins
+    [int]$Top                           # 0 = no TOP clause
+    [string[]]$Select
+    [object]$Where                      # WhereExpr tree or $null
+    [System.Collections.ArrayList]$OrderBy
 
-class QueryAST {
-    [SelectNode[]]$Select      # Array of select nodes
-    [FilterNode[]]$Filters     # Array of filter conditions
-    [SortNode[]]$Sort          # Array of sort specifications
-    [PageNode]$Page            # Single page node
-    [string]$RootEntity        # 'User', 'Order', etc.
-
-    QueryAST([string]$rootEntity) {
+    SQueryAST([string]$rootEntity) {
         $this.RootEntity = $rootEntity
-        $this.Select = @()
-        $this.Filters = @()
-        $this.Sort = @()
-        $this.Page = $null
+        $this.Joins      = [System.Collections.ArrayList]::new()
+        $this.Top        = 0
+        $this.Select     = @()
+        $this.Where      = $null
+        $this.OrderBy    = [System.Collections.ArrayList]::new()
     }
 
     [string] ToString() {
-        $result = "QueryAST for Entity: $($this.RootEntity)`n"
-        $result += "  Select: $($this.Select.Count) fields`n"
-        $result += "  Filters: $($this.Filters.Count) conditions`n"
-        $result += "  Sort: $($this.Sort.Count) orders`n"
-        if ($this.Page) {
-            $result += "  Page: Limit=$($this.Page.Limit), Offset=$($this.Page.Offset)`n"
-        }
-        return $result
+        $whereStr = if ($this.Where) { 'yes' } else { 'none' }
+        return "SQueryAST[$($this.RootEntity)] joins=$($this.Joins.Count) top=$($this.Top) select=$($this.Select.Length) where=$whereStr orderby=$($this.OrderBy.Count)"
     }
 }
 
-# Parser Class
+# -- Parser ---------------------------------------------------------------------
 
 class SQueryParser {
     [array]$Tokens
+    [int]$Pos
     [string]$RootEntity
 
+    # Keywords that start a new top-level clause - stop field list parsing when seen
+    hidden static [string[]]$ClauseKeywords = @('join', 'top', 'select', 'where', 'order')
+
     SQueryParser([array]$tokens, [string]$rootEntity) {
-        $this.Tokens = $tokens
+        $this.Tokens     = $tokens
+        $this.Pos        = 0
         $this.RootEntity = $rootEntity
     }
 
-    [QueryAST] Parse() {
-        $ast = [QueryAST]::new($this.RootEntity)
+    # -- Token helpers ---------------------------------------------------------
 
-        # Group tokens by type for easier processing
-        $selectTokens = @($this.Tokens | Where-Object { $_.Type -eq 'select' })
-        $filterTokens = @($this.Tokens | Where-Object { $_.Type -eq 'filter' })
-        $sortTokens = @($this.Tokens | Where-Object { $_.Type -eq 'sort' })
-        $limitTokens = @($this.Tokens | Where-Object { $_.Type -eq 'limit' })
-        $offsetTokens = @($this.Tokens | Where-Object { $_.Type -eq 'offset' })
-        $pageTokens = @($this.Tokens | Where-Object { $_.Type -eq 'page' })
+    [bool] HasTokens() {
+        return $this.Pos -lt $this.Tokens.Length
+    }
 
-        # Parse SELECT
-        if ($selectTokens.Count -gt 0) {
-            $ast.Select = $this.ParseSelect($selectTokens)
+    [object] Peek() {
+        if ($this.Pos -lt $this.Tokens.Length) { return $this.Tokens[$this.Pos] }
+        return $null
+    }
+
+    [object] Consume() {
+        if ($this.Pos -lt $this.Tokens.Length) {
+            $tok = $this.Tokens[$this.Pos]
+            $this.Pos++
+            return $tok
         }
+        return $null
+    }
 
-        # Parse FILTER
-        if ($filterTokens.Count -gt 0) {
-            $ast.Filters = $this.ParseFilters($filterTokens)
+    [bool] IsKeyword([string]$kw) {
+        $tok = $this.Peek()
+        return ($null -ne $tok -and $tok.Type -eq 'KEYWORD' -and $tok.Value -eq $kw)
+    }
+
+    [bool] IsType([string]$type) {
+        $tok = $this.Peek()
+        return ($null -ne $tok -and $tok.Type -eq $type)
+    }
+
+    [bool] IsClauseKeyword() {
+        $tok = $this.Peek()
+        return ($null -ne $tok -and $tok.Type -eq 'KEYWORD' -and $tok.Value -in [SQueryParser]::ClauseKeywords)
+    }
+
+    [void] ExpectKeyword([string]$kw) {
+        $tok = $this.Consume()
+        if ($null -eq $tok -or $tok.Type -ne 'KEYWORD' -or $tok.Value -ne $kw) {
+            $got = if ($tok) { $tok.Value } else { 'EOF' }
+            throw "SQueryParser: expected keyword '$kw' but got '$got'"
         }
+    }
 
-        # Parse SORT
-        if ($sortTokens.Count -gt 0) {
-            $ast.Sort = $this.ParseSort($sortTokens)
+    # -- Main parse ------------------------------------------------------------
+
+    [object] Parse() {
+        $ast = [SQueryAST]::new($this.RootEntity)
+
+        while ($this.HasTokens()) {
+            $tok = $this.Peek()
+
+            if ($tok.Type -ne 'KEYWORD') {
+                Write-Warning "SQueryParser: unexpected token '$($tok.Value)' (type=$($tok.Type)) at pos $($tok.Position) - skipping"
+                $this.Consume()
+                continue
+            }
+
+            switch ($tok.Value) {
+                'join'   { $null = $ast.Joins.Add($this.ParseJoin()) }
+                'top'    { $ast.Top    = $this.ParseTop() }
+                'select' { $ast.Select = $this.ParseSelect() }
+                'where'  { $ast.Where  = $this.ParseWhere() }
+                'order'  { $this.ParseOrderBy($ast) }
+                default  {
+                    Write-Warning "SQueryParser: unexpected keyword '$($tok.Value)' at top level - skipping"
+                    $this.Consume()
+                }
+            }
         }
-
-        # Parse PAGINATION
-        $ast.Page = $this.ParsePagination($limitTokens, $offsetTokens, $pageTokens)
 
         return $ast
     }
 
-    [SelectNode[]] ParseSelect([array]$tokens) {
-        $selectNodes = @()
+    # -- Dotted identifier -----------------------------------------------------
+    # Reassembles "a", "a.b", "a.b.c" from consecutive IDENTIFIER DOT IDENTIFIER tokens.
+    # KEYWORD tokens are also accepted as identifier parts (e.g. field named "Type").
 
-        foreach ($token in $tokens) {
-            $fields = $token.Value
-            if ($fields -is [string]) {
-                $fields = @($fields)
-            }
-
-            $selectNodes += [SelectNode]::new($fields)
+    [string] ParseDottedIdentifier() {
+        $tok = $this.Consume()
+        if ($null -eq $tok) {
+            throw 'SQueryParser: expected identifier but got EOF'
         }
-
-        return $selectNodes
-    }
-
-    [FilterNode[]] ParseFilters([array]$tokens) {
-        $filterNodes = @()
-
-        foreach ($token in $tokens) {
-            $filterNode = [FilterNode]::new(
-                $token.NestedKey,
-                $token.Operator,
-                $token.Value
-            )
-            $filterNodes += $filterNode
+        if ($tok.Type -ne 'IDENTIFIER' -and $tok.Type -ne 'KEYWORD') {
+            throw "SQueryParser: expected identifier but got '$($tok.Value)' (type=$($tok.Type))"
         }
+        $result = $tok.Value
 
-        return $filterNodes
-    }
-
-    [SortNode[]] ParseSort([array]$tokens) {
-        $sortNodes = @()
-
-        foreach ($token in $tokens) {
-            $field = $token.NestedKey
-            $direction = $token.Value.ToLower()
-
-            # Validate direction
-            if ($direction -notin @('asc', 'desc')) {
-                Write-Warning "Invalid sort direction '$direction' for field '$field', defaulting to 'asc'"
-                $direction = 'asc'
-            }
-
-            $sortNode = [SortNode]::new($field, $direction)
-            $sortNodes += $sortNode
-        }
-
-        return $sortNodes
-    }
-
-    [PageNode] ParsePagination([array]$limitTokens, [array]$offsetTokens, [array]$pageTokens) {
-        $limit = 0
-        $offset = 0
-
-        # Handle explicit limit/offset parameters
-        if ($limitTokens.Count -gt 0) {
-            $limitValue = $limitTokens[0].Value
-            if ($limitValue -match '^\d+$') {
-                $limit = [int]$limitValue
+        while ($this.HasTokens() -and $this.IsType('DOT')) {
+            $this.Consume()   # consume DOT
+            $next = $this.Peek()
+            if ($null -ne $next -and ($next.Type -eq 'IDENTIFIER' -or $next.Type -eq 'KEYWORD')) {
+                $result += '.' + $this.Consume().Value
             } else {
-                Write-Warning "Invalid limit value '$limitValue', ignoring"
+                break
             }
         }
 
-        if ($offsetTokens.Count -gt 0) {
-            $offsetValue = $offsetTokens[0].Value
-            if ($offsetValue -match '^\d+$') {
-                $offset = [int]$offsetValue
+        return $result
+    }
+
+    # -- Join ------------------------------------------------------------------
+    # join EntityPath [of type TypeFilter] Alias
+
+    [object] ParseJoin() {
+        $this.ExpectKeyword('join')
+
+        $node = [JoinNode]::new()
+        $node.EntityPath = $this.ParseDottedIdentifier()
+
+        # Optional "of type TypeFilter"
+        if ($this.IsKeyword('of')) {
+            $this.ExpectKeyword('of')
+            $this.ExpectKeyword('type')
+            $node.TypeFilter = $this.ParseDottedIdentifier()
+        }
+
+        # Alias - the next IDENTIFIER or KEYWORD token (aliases are usually short like 'r', 'w')
+        $aliasTok = $this.Consume()
+        if ($null -eq $aliasTok) {
+            throw "SQueryParser: expected alias after join entity '$($node.EntityPath)'"
+        }
+        $node.Alias = $aliasTok.Value
+
+        return $node
+    }
+
+    # -- Top -------------------------------------------------------------------
+
+    [int] ParseTop() {
+        $this.ExpectKeyword('top')
+        $numTok = $this.Consume()
+        if ($null -eq $numTok -or $numTok.Type -ne 'NUMBER') {
+            throw "SQueryParser: expected number after 'top'"
+        }
+        return [int]$numTok.Value
+    }
+
+    # -- Select ----------------------------------------------------------------
+    # select field1, alias.field2, alias2.field3, ...
+
+    [string[]] ParseSelect() {
+        $this.ExpectKeyword('select')
+        $fields = [System.Collections.ArrayList]::new()
+
+        # First field
+        if ($this.HasTokens() -and -not $this.IsClauseKeyword()) {
+            $null = $fields.Add($this.ParseDottedIdentifier())
+        }
+
+        # Remaining fields after commas
+        while ($this.HasTokens() -and $this.IsType('COMMA')) {
+            $this.Consume()   # consume COMMA
+            if (-not $this.HasTokens() -or $this.IsClauseKeyword()) { break }
+            $null = $fields.Add($this.ParseDottedIdentifier())
+        }
+
+        return $fields.ToArray()
+    }
+
+    # -- Where -----------------------------------------------------------------
+
+    [object] ParseWhere() {
+        $this.ExpectKeyword('where')
+        return $this.ParseOrExpr()
+    }
+
+    [object] ParseOrExpr() {
+        $left = $this.ParseAndExpr()
+
+        while ($this.HasTokens() -and $this.IsKeyword('or')) {
+            $this.Consume()
+            $right = $this.ParseAndExpr()
+            $left  = [LogicalExpr]::new($left, 'OR', $right)
+        }
+
+        return $left
+    }
+
+    [object] ParseAndExpr() {
+        $left = $this.ParseNotExpr()
+
+        while ($this.HasTokens() -and $this.IsKeyword('and')) {
+            $this.Consume()
+            $right = $this.ParseNotExpr()
+            $left  = [LogicalExpr]::new($left, 'AND', $right)
+        }
+
+        return $left
+    }
+
+    [object] ParseNotExpr() {
+        if ($this.IsKeyword('not')) {
+            $this.Consume()
+            $child = $this.ParseNotExpr()
+            return [NotExpr]::new($child)
+        }
+        return $this.ParsePrimary()
+    }
+
+    [object] ParsePrimary() {
+        if ($this.IsType('LPAREN')) {
+            $this.Consume()   # consume '('
+            $expr = $this.ParseOrExpr()
+            if ($this.IsType('RPAREN')) {
+                $this.Consume()   # consume ')'
             } else {
-                Write-Warning "Invalid offset value '$offsetValue', ignoring"
+                $got = if ($this.Peek()) { $this.Peek().Value } else { 'EOF' }
+                Write-Warning "SQueryParser: expected ')' but got '$got'"
             }
+            return $expr
         }
 
-        # Handle page parameter (could be page=1 or page[limit]=50)
-        # For now, simple implementation for future expansion
-        if ($pageTokens.Count -gt 0) {
-            # Future: handle complex page syntax like page[limit]=50&page[offset]=100
+        return $this.ParseComparison()
+    }
+
+    [object] ParseComparison() {
+        $field = $this.ParseDottedIdentifier()
+
+        $opTok = $this.Consume()
+        if ($null -eq $opTok -or $opTok.Type -ne 'OPERATOR') {
+            $got = if ($opTok) { $opTok.Value } else { 'EOF' }
+            throw "SQueryParser: expected operator after field '$field' but got '$got'"
         }
 
-        # Only create PageNode if pagination is requested
-        if ($limit -gt 0 -or $offset -gt 0) {
-            return [PageNode]::new($limit, $offset)
+        $value = $this.ParseValue()
+        return [CompareExpr]::new($field, $opTok.Value, $value)
+    }
+
+    [object] ParseValue() {
+        $tok = $this.Peek()
+        if ($null -eq $tok) {
+            throw 'SQueryParser: expected value but got EOF'
         }
 
-        return $null
+        $consumed = $this.Consume()
+        switch ($consumed.Type) {
+            'NUMBER'     { return [double]::Parse($consumed.Value, [System.Globalization.CultureInfo]::InvariantCulture) }
+            'STRING'     { return $consumed.Value }
+            'NULL'       { return $null }
+            'BOOLEAN'    { return ($consumed.Value -eq 'true') }
+            default      { return $consumed.Value }
+        }
+        # Unreachable, but satisfies static analysis
+        return $consumed.Value
+    }
+
+    # -- Order By --------------------------------------------------------------
+    # order by field [asc|desc] [, field [asc|desc]]*
+
+    [void] ParseOrderBy([object]$ast) {
+        $this.ExpectKeyword('order')
+        $this.ExpectKeyword('by')
+
+        # First sort item
+        $this.AddSortNode($ast)
+
+        # Additional sort items
+        while ($this.HasTokens() -and $this.IsType('COMMA')) {
+            $this.Consume()   # consume COMMA
+            if (-not $this.HasTokens()) { break }
+            $this.AddSortNode($ast)
+        }
+    }
+
+    [void] AddSortNode([object]$ast) {
+        $field     = $this.ParseDottedIdentifier()
+        $direction = 'ASC'
+
+        if ($this.IsKeyword('asc')) {
+            $this.Consume()
+            $direction = 'ASC'
+        } elseif ($this.IsKeyword('desc')) {
+            $this.Consume()
+            $direction = 'DESC'
+        }
+
+        $node           = [SortNode]::new()
+        $node.Field     = $field
+        $node.Direction = $direction
+        $null = $ast.OrderBy.Add($node)
     }
 }
