@@ -246,25 +246,34 @@ class SQueryTransformer {
     }
 
     # -- SELECT ----------------------------------------------------------------
-    # Unqualified fields get the root-entity alias prefix; aliased fields pass through.
+    # All fields go through ResolveField which applies column renaming.
 
     [string[]] TransformSelect([string]$rootAlias) {
         $result = [System.Collections.ArrayList]::new()
         foreach ($field in $this.AST.Select) {
-            if ($field -match '\.') {
-                $null = $result.Add($field)             # already "alias.Column"
-            } else {
-                $null = $result.Add("$rootAlias.$field") # prefix with root alias
-            }
+            $null = $result.Add($this.ResolveField($field, $rootAlias))
         }
         return $result.ToArray()
     }
 
-    # -- Field resolution ------------------------------------------------------
+    # -- Field resolution (with column renaming) --------------------------------
+    # Resolves a field reference to "alias.dbColumn", applying:
+    #   - entity-specific overrides from column-rules.json
+    #   - global renames (DisplayName -> DisplayName_L1, etc.)
+    #   - auto-rename: FooId -> Foo_Id  (FK naming convention)
 
     [string] ResolveField([string]$field, [string]$rootAlias) {
-        if ($field -match '\.') { return $field }
-        return "$rootAlias.$field"
+        if ($field -match '\.') {
+            $dotIdx = $field.IndexOf('.')
+            $alias  = $field.Substring(0, $dotIdx)
+            $col    = $field.Substring($dotIdx + 1)
+            $entity = if ($this.AliasToEntity.ContainsKey($alias)) { $this.AliasToEntity[$alias] } else { '' }
+            $dbCol  = $this.Config.GetColumnDbName($entity, $col)
+            return "$alias.$dbCol"
+        }
+        $entity = if ($this.AliasToEntity.ContainsKey($rootAlias)) { $this.AliasToEntity[$rootAlias] } else { '' }
+        $dbCol  = $this.Config.GetColumnDbName($entity, $field)
+        return "$rootAlias.$dbCol"
     }
 
     # -- WHERE tree → SQL ------------------------------------------------------
@@ -299,7 +308,14 @@ class SQueryTransformer {
             return "$field IS NULL"
         }
 
-        # Boolean → convert to 0/1 for SQL Server bit columns
+        # LIKE/contains operators: %= and %=% -> LIKE '%value%'
+        if ($op -eq '%=' -or $op -eq '%=%') {
+            $paramName = $this.NextParamName()
+            $this.Parameters[$paramName] = '%' + $value.ToString() + '%'
+            return "$field LIKE @$paramName"
+        }
+
+        # Boolean -> convert to 0/1 for SQL Server bit columns
         if ($value -is [bool]) {
             $sqlValue   = if ($value) { 1 } else { 0 }
             $paramName  = $this.NextParamName()

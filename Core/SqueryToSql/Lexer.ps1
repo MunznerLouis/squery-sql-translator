@@ -56,6 +56,16 @@ class SQueryLexer {
                 continue
             }
 
+            # Three-char operators: %=%
+            if ($this.Pos + 2 -lt $len) {
+                $three = $sqInput.Substring($this.Pos, 3)
+                if ($three -eq '%=%') {
+                    $null = $this.Tokens.Add([SQueryToken]::new('OPERATOR', '%=%', $this.Pos))
+                    $this.Pos += 3
+                    continue
+                }
+            }
+
             # Two-char operators: !=  >=  <=  %=
             if ($this.Pos + 1 -lt $len) {
                 $two = $sqInput.Substring($this.Pos, 2)
@@ -75,8 +85,20 @@ class SQueryLexer {
             if ($ch -eq '>') { $null = $this.Tokens.Add([SQueryToken]::new('OPERATOR', '>', $this.Pos)); $this.Pos++; continue }
             if ($ch -eq '<') { $null = $this.Tokens.Add([SQueryToken]::new('OPERATOR', '<', $this.Pos)); $this.Pos++; continue }
             if ($ch -eq '!') { $null = $this.Tokens.Add([SQueryToken]::new('OPERATOR', '!', $this.Pos)); $this.Pos++; continue }
-            # Standalone % means LIKE/contains in some variants
+            # Standalone % means LIKE/contains
             if ($ch -eq '%') { $null = $this.Tokens.Add([SQueryToken]::new('OPERATOR', '%=', $this.Pos)); $this.Pos++; continue }
+
+            # Negative number: - followed by a digit
+            if ($ch -eq '-' -and $this.Pos + 1 -lt $len -and [char]::IsDigit($sqInput[$this.Pos + 1])) {
+                $start = $this.Pos
+                $this.Pos++   # skip '-'
+                while ($this.Pos -lt $len -and ([char]::IsDigit($sqInput[$this.Pos]) -or $sqInput[$this.Pos] -eq '.')) {
+                    $this.Pos++
+                }
+                $num = $sqInput.Substring($start, $this.Pos - $start)
+                $null = $this.Tokens.Add([SQueryToken]::new('NUMBER', $num, $start))
+                continue
+            }
 
             # Single-quoted string
             if ($ch -eq "'") {

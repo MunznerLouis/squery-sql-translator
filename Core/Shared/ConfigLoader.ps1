@@ -132,6 +132,29 @@ class ConfigLoader {
         }
     }
 
+    # Returns the DB column name for a given SQuery field name, applying:
+    #   1. Entity-specific override from column-rules.json
+    #   2. Global renames (e.g. DisplayName -> DisplayName_L1)
+    #   3. Auto-rename: FooId -> Foo_Id  (FK naming; skips bare "Id" and already-underscored "_Id")
+    [string] GetColumnDbName([string]$entityName, [string]$fieldName) {
+        # 1. Entity-specific override
+        if ($this.ColumnRules.entities.ContainsKey($entityName)) {
+            $er = $this.ColumnRules.entities[$entityName]
+            if ($er.ContainsKey($fieldName) -and $er[$fieldName].ContainsKey('dbColumn')) {
+                return $er[$fieldName].dbColumn
+            }
+        }
+        # 2. Global renames
+        if ($this.ColumnRules.ContainsKey('globalRenames') -and $this.ColumnRules.globalRenames.ContainsKey($fieldName)) {
+            return $this.ColumnRules.globalRenames[$fieldName]
+        }
+        # 3. FK auto-rename: FooId -> Foo_Id (not bare "Id", not already "Foo_Id")
+        if ($fieldName -ne 'Id' -and $fieldName.EndsWith('Id') -and -not $fieldName.EndsWith('_Id')) {
+            return $fieldName.Substring(0, $fieldName.Length - 2) + '_Id'
+        }
+        return $fieldName
+    }
+
     # Returns navigation property definition for an entity, or $null if not found.
     # join-patterns.json structure:
     #   { "navigationProperties": { "EntityName": { "NavProp": { targetTable, targetEntity, localKey, foreignKey } } } }

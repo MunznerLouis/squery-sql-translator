@@ -1,196 +1,216 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "version": "2.0",
-  "description": "Database table mappings — all entities use allowedFields:[\"*\"] to allow any field. Add explicit field lists to restrict access.",
+  "description": "Database table mappings. Each entity has an entity-specific alias and allowedFields:[\"*\"] to allow any field.",
   "tables": {
     "AssignedResourceType": {
       "tableName": "[dbo].[UP_AssignedResourceTypes]",
-      "alias": "t",
+      "alias": "art",
       "allowedFields": ["*"]
     },
     "AssignedSingleRole": {
       "tableName": "[dbo].[UP_AssignedSingleRoles]",
-      "alias": "t",
+      "alias": "asr",
       "allowedFields": ["*"]
     },
     "AssignedCompositeRole": {
       "tableName": "[dbo].[UP_AssignedCompositeRoles]",
-      "alias": "t",
+      "alias": "acr",
       "allowedFields": ["*"]
     },
     "AutomationRule": {
       "tableName": "[dbo].[UP_AutomationRules]",
-      "alias": "t",
+      "alias": "ar",
       "allowedFields": ["*"]
     },
     "Category": {
       "tableName": "[dbo].[UP_Categories]",
-      "alias": "t",
+      "alias": "cat",
       "allowedFields": ["*"]
     },
     "CompositeRole": {
       "tableName": "[dbo].[UP_CompositeRoles]",
-      "alias": "t",
+      "alias": "cr",
       "allowedFields": ["*"]
     },
     "CompositeRoleRule": {
       "tableName": "[dbo].[UP_CompositeRoleRules]",
-      "alias": "t",
+      "alias": "crr",
       "allowedFields": ["*"]
     },
     "Policy": {
       "tableName": "[dbo].[UP_Policies]",
-      "alias": "t",
+      "alias": "pol",
       "allowedFields": ["*"]
     },
     "ResourceClassificationRule": {
       "tableName": "[dbo].[UP_ResourceClassificationRules]",
-      "alias": "t",
+      "alias": "rcl",
+      "allowedFields": ["*"]
+    },
+    "ResourceCorrelationRule": {
+      "tableName": "[dbo].[UP_ResourceCorrelationRules]",
+      "alias": "rcr",
       "allowedFields": ["*"]
     },
     "ResourceNavigationRule": {
       "tableName": "[dbo].[UP_ResourceNavigationRules]",
-      "alias": "t",
+      "alias": "rnr",
       "allowedFields": ["*"]
     },
     "ResourceQueryRule": {
       "tableName": "[dbo].[UP_ResourceQueryRules]",
-      "alias": "t",
+      "alias": "rqr",
       "allowedFields": ["*"]
     },
     "ResourceType": {
       "tableName": "[dbo].[UP_ResourceTypes]",
-      "alias": "t",
+      "alias": "rt",
       "allowedFields": ["*"]
     },
     "ResourceTypeRule": {
       "tableName": "[dbo].[UP_ResourceTypeRules]",
-      "alias": "t",
+      "alias": "rtr",
       "allowedFields": ["*"]
     },
     "RiskRule": {
       "tableName": "[dbo].[UP_RiskRules]",
-      "alias": "t",
+      "alias": "rr",
       "allowedFields": ["*"]
     },
     "RoleMapping": {
       "tableName": "[dbo].[UP_RoleMappings]",
-      "alias": "t",
+      "alias": "rm",
       "allowedFields": ["*"]
     },
     "RoleMappingRule": {
       "tableName": "[dbo].[UP_RoleMappingRules]",
-      "alias": "t",
+      "alias": "rmr",
       "allowedFields": ["*"]
     },
     "SingleRole": {
       "tableName": "[dbo].[UP_SingleRoles]",
-      "alias": "t",
+      "alias": "sr",
       "allowedFields": ["*"]
     },
     "SingleRoleRule": {
       "tableName": "[dbo].[UP_SingleRoleRules]",
-      "alias": "t",
+      "alias": "srr",
       "allowedFields": ["*"]
     },
     "SimulationPolicy": {
       "tableName": "[dbo].[UP_PolicySimulations]",
-      "alias": "t",
+      "alias": "sp",
       "allowedFields": ["*"]
     },
     "WorkflowState": {
       "tableName": "[dbo].[UP_WorkflowStates]",
-      "alias": "t",
+      "alias": "ws",
       "allowedFields": ["*"]
     },
     "Resource": {
       "tableName": "[dbo].[UR_Resources]",
-      "alias": "t",
+      "alias": "r",
       "allowedFields": ["*"]
     },
     "Activity": {
       "tableName": "[dbo].[UW_Activities]",
-      "alias": "t",
+      "alias": "act",
       "allowedFields": ["*"]
     },
     "UserActivityInstance": {
       "tableName": "[dbo].[UW_ActivityInstances]",
-      "alias": "t",
+      "alias": "uai",
       "allowedFields": ["*"]
     },
     "PointCut": {
       "tableName": "[dbo].[UW_PointCuts]",
-      "alias": "t",
+      "alias": "pct",
       "allowedFields": ["*"]
     },
     "Recipient": {
       "tableName": "[dbo].[UW_Recipients]",
-      "alias": "t",
+      "alias": "rec",
       "allowedFields": ["*"]
     },
     "Workflow": {
       "tableName": "[dbo].[UW_Workflows]",
-      "alias": "t",
+      "alias": "wf",
       "allowedFields": ["*"]
     },
     "WorkflowInstance": {
       "tableName": "[dbo].[UW_WorkflowInstances]",
-      "alias": "t",
+      "alias": "wi",
       "allowedFields": ["*"]
     },
     "Agent": {
       "tableName": "[dbo].[UC_Agents]",
-      "alias": "t",
+      "alias": "ag",
       "allowedFields": ["*"]
     },
     "Connector": {
       "tableName": "[dbo].[UC_Connectors]",
-      "alias": "t",
+      "alias": "con",
       "allowedFields": ["*"]
     },
     "Connection": {
       "tableName": "[dbo].[UC_Connections]",
-      "alias": "t",
+      "alias": "conn",
       "allowedFields": ["*"]
     },
     "Package": {
       "tableName": "[dbo].[UC_Packages]",
-      "alias": "t",
+      "alias": "pkg",
       "allowedFields": ["*"]
     },
     "EntityTypeMapping": {
       "tableName": "[dbo].[UC_EntityTypeMappings]",
-      "alias": "t",
+      "alias": "etm",
       "allowedFields": ["*"]
     },
     "Job": {
       "tableName": "[dbo].[UJ_Jobs]",
-      "alias": "t",
+      "alias": "job",
       "allowedFields": ["*"]
     },
     "JobInstance": {
       "tableName": "[dbo].[UJ_JobInstances]",
-      "alias": "t",
+      "alias": "ji",
       "allowedFields": ["*"]
     },
     "JobStep": {
       "tableName": "[dbo].[UJ_JobSteps]",
-      "alias": "t",
+      "alias": "js",
       "allowedFields": ["*"]
     },
     "Property": {
       "tableName": "[dbo].[UM_EntityProperties]",
-      "alias": "t",
+      "alias": "prop",
+      "allowedFields": ["*"]
+    },
+    "EntityType": {
+      "tableName": "[dbo].[UM_EntityTypes]",
+      "alias": "et",
+      "allowedFields": ["*"]
+    },
+    "Binding": {
+      "tableName": "[dbo].[UM_Bindings]",
+      "alias": "bnd",
+      "allowedFields": ["*"]
+    },
+    "Context": {
+      "tableName": "[dbo].[UP_Contexts]",
+      "alias": "ctx",
       "allowedFields": ["*"]
     },
     "Universe": {
       "tableName": "[dbo].[UU_Universes]",
-      "alias": "t",
+      "alias": "univ",
       "allowedFields": ["*"]
     },
     "AccessCertificationCampaign": {
       "tableName": "[dbo].[US_AccessCertificationCampaigns]",
-      "alias": "t",
+      "alias": "acc",
       "allowedFields": ["*"]
     }
   }

@@ -1,3 +1,4 @@
 # .gitignore
 .claude/
 .sample_data/
+Configs/Custom/resource-columns.json

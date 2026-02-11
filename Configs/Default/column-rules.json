@@ -3,5 +3,10 @@
   "version": "2.0",
   "description": "Optional per-column overrides (dbColumn rename, dataType, allowedOperators). With the SQL-like SQuery format most fields pass through as-is. Add entries here only when a field name in SQuery differs from the actual DB column name.",
   "entities": {
+  },
+  "globalRenames": {
+    "DisplayName":         "DisplayName_L1",
+    "FullName":            "FullName_L1",
+    "InternalDisplayName": "InternalDisplayName_L1"
   }
 }
