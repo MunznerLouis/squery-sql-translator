@@ -181,8 +181,17 @@ class ConfigLoader {
         }
         # 2. Resource EntityType column map (has priority over globalRenames for Resource subtypes)
         $resConfig = $this.GetResourceEntityConfig($entityName)
-        if ($null -ne $resConfig -and $resConfig.columns.ContainsKey($fieldName)) {
-            return $resConfig.columns[$fieldName]
+        if ($null -ne $resConfig) {
+            if ($resConfig.columns.ContainsKey($fieldName)) {
+                return $resConfig.columns[$fieldName]
+            }
+            # 2b. FK alias: PresenceState_Id -> PresenceState (strip _Id suffix and retry)
+            if ($fieldName.EndsWith('_Id') -and $fieldName.Length -gt 3) {
+                $baseName = $fieldName.Substring(0, $fieldName.Length - 3)
+                if ($resConfig.columns.ContainsKey($baseName)) {
+                    return $resConfig.columns[$baseName]
+                }
+            }
         }
         # 3. Global renames
         if ($this.ColumnRules.ContainsKey('globalRenames') -and $this.ColumnRules.globalRenames.ContainsKey($fieldName)) {

@@ -1,6 +1,6 @@
 ﻿# WorkspaceInitializer.ps1
 # Provides Initialize-Workspace and Update-SQueryEntityTypes cmdlets.
-# These guide the user through first-time setup and EntityType import.
+# Supports CSV import and SQL Server auto-connect for EntityType discovery.
 
 # ---------------------------------------------------------------------------
 # Private helpers (not exported)
@@ -20,57 +20,107 @@ function ConvertTo-RCColumnName {
     return 'C' + $result
 }
 
-# Parse EntityType XML and return an ordered hashtable of entityName -> config
-function Read-EntityTypesFromXml {
-    param([string]$XmlPath)
-
-    $xmlContent = Get-Content $XmlPath -Raw -Encoding UTF8
-    # Wrap in a root element if the file is raw EntityType fragments
-    if ($xmlContent -notmatch '<\?xml') {
-        $xmlContent = "<?xml version='1.0' encoding='utf-8'?><EntityTypes>$xmlContent</EntityTypes>"
+# Derive a short alias from a CamelCase/underscore entity name
+# e.g. Directory_FR_User -> dfru, SAP_Person -> sp
+function Get-EntityAlias {
+    param([string]$EntityName)
+    $words = [regex]::Matches($EntityName, '[A-Z][a-z0-9_]*') | ForEach-Object { $_.Value }
+    if ($words.Count -gt 1) {
+        return ($words | ForEach-Object { $_[0].ToString().ToLower() }) -join ''
     }
-    try {
-        [xml]$xml = $xmlContent
-    } catch {
-        throw "Failed to parse XML: $($_.Exception.Message)"
+    return $EntityName.Substring(0, [Math]::Min(4, $EntityName.Length)).ToLower()
+}
+
+# Parse semicolon-delimited CSV and return ordered hashtable of entityName -> config
+# CSV columns: EntityType_Id;Identifier;Property;TargetColumnIndex
+function Read-EntityTypesFromCsv {
+    param([string]$CsvPath)
+
+    $rows = Import-Csv $CsvPath -Delimiter ';'
+    if ($rows.Count -eq 0) {
+        throw "CSV file is empty or has no data rows."
+    }
+
+    # Validate expected columns
+    $firstRow = $rows[0]
+    $requiredCols = @('EntityType_Id', 'Identifier', 'Property', 'TargetColumnIndex')
+    foreach ($col in $requiredCols) {
+        if ($null -eq $firstRow.PSObject.Properties[$col]) {
+            throw "CSV is missing required column '$col'. Expected columns: $($requiredCols -join ';')"
+        }
     }
 
     $result = [ordered]@{}
-    foreach ($etNode in $xml.DocumentElement.SelectNodes('//EntityType')) {
-        $entityName = $etNode.GetAttribute('Identifier')
-        if ([string]::IsNullOrWhiteSpace($entityName)) { continue }
+    foreach ($row in $rows) {
+        $entityName   = $row.Identifier
+        $entityTypeId = [int]$row.EntityType_Id
+        $targetIdx    = [int]$row.TargetColumnIndex
+        $colName      = ConvertTo-RCColumnName -Index $targetIdx
 
-        # Derive alias from CamelCase initials (e.g. Directory_FR_User -> dfru)
-        $words = [regex]::Matches($entityName, '[A-Z][a-z0-9_]*') | ForEach-Object { $_.Value }
-        $alias = if ($words.Count -gt 1) {
-            ($words | ForEach-Object { $_[0].ToString().ToLower() }) -join ''
-        } else {
-            $entityName.Substring(0, [Math]::Min(4, $entityName.Length)).ToLower()
-        }
-
-        $columns = [ordered]@{ Id = 'Id' }
-        foreach ($propNode in $etNode.SelectNodes('Property')) {
-            $propId    = $propNode.GetAttribute('Identifier')
-            $propType  = $propNode.GetAttribute('Type')
-            $targetIdx = $propNode.GetAttribute('TargetColumnIndex')
-            if ([string]::IsNullOrWhiteSpace($propId) -or [string]::IsNullOrWhiteSpace($targetIdx)) { continue }
-
-            $colName = ConvertTo-RCColumnName -Index ([int]$targetIdx)
-            $columns[$propId] = $colName
-
-            # ForeignKey properties also get a {Identifier}_Id alias
-            if ($propType -eq 'ForeignKey') {
-                $columns["${propId}_Id"] = $colName
+        if (-not $result.Contains($entityName)) {
+            $alias = Get-EntityAlias -EntityName $entityName
+            $result[$entityName] = [ordered]@{
+                entityTypeId = $entityTypeId
+                alias        = $alias
+                columns      = [ordered]@{ Id = 'Id' }
             }
         }
-
-        $result[$entityName] = [ordered]@{
-            entityTypeId = 0
-            alias        = $alias
-            columns      = $columns
-        }
+        $result[$entityName].columns[$row.Property] = $colName
     }
     return $result
+}
+
+# Connect to SQL Server and run the discovery query, returning the same structure as CSV import
+function Read-EntityTypesFromSqlServer {
+    param(
+        [string]$ServerInstance,
+        [string]$Database,
+        [string]$Login,
+        [string]$Password
+    )
+
+    # Read the discovery query from the .sql file
+    $sqlFile = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\Scripts\Get-EntityTypeProperties.sql'))
+    if (-not (Test-Path $sqlFile)) {
+        throw "SQL query file not found: $sqlFile"
+    }
+    $query = Get-Content $sqlFile -Raw
+
+    $connStr = "Server=$ServerInstance;Database=$Database;User Id=$Login;Password=$Password"
+    try {
+        $conn = [System.Data.SqlClient.SqlConnection]::new($connStr)
+        $conn.Open()
+    } catch {
+        throw "Failed to connect to SQL Server: $($_.Exception.Message)"
+    }
+
+    try {
+        $cmd = $conn.CreateCommand()
+        $cmd.CommandText = $query
+        $cmd.CommandTimeout = 30
+        $reader = $cmd.ExecuteReader()
+
+        $result = [ordered]@{}
+        while ($reader.Read()) {
+            $entityName   = $reader['Identifier'].ToString()
+            $entityTypeId = [int]$reader['EntityType_Id']
+            $targetIdx    = [int]$reader['TargetColumnIndex']
+            $colName      = ConvertTo-RCColumnName -Index $targetIdx
+
+            if (-not $result.Contains($entityName)) {
+                $alias = Get-EntityAlias -EntityName $entityName
+                $result[$entityName] = [ordered]@{
+                    entityTypeId = $entityTypeId
+                    alias        = $alias
+                    columns      = [ordered]@{ Id = 'Id' }
+                }
+            }
+            $result[$entityName].columns[$reader['Property'].ToString()] = $colName
+        }
+        return $result
+    } finally {
+        $conn.Close()
+    }
 }
 
 # Write an entityTypes hashtable to resource-columns.json with UTF-8 BOM
@@ -124,6 +174,15 @@ function Read-ExistingResourceColumns {
     return $existing
 }
 
+# Show summary of imported EntityTypes
+function Show-ImportSummary {
+    param([object]$EntityTypes)
+    foreach ($en in $EntityTypes.Keys) {
+        $colCount = $EntityTypes[$en].columns.Count - 1
+        Write-Host "  $en (id=$($EntityTypes[$en].entityTypeId)) : $colCount columns (alias=$($EntityTypes[$en].alias))" -ForegroundColor Gray
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Public cmdlets
 # ---------------------------------------------------------------------------
@@ -134,31 +193,61 @@ Guided first-time setup for SQuery-SQL-Translator.
 
 .DESCRIPTION
 Interactive wizard that generates Configs/Custom/resource-columns.json from
-an Identity Manager EntityType XML export. Run this once per project before
-using Convert-SQueryToSql with Resource EntityTypes.
+either a direct SQL Server connection or a CSV file exported from SSMS.
+Run this once per project before using Convert-SQueryToSql with Resource EntityTypes.
 
-.PARAMETER XmlPath
-Path to the EntityType XML export file. If omitted, the wizard prompts interactively.
+.PARAMETER CsvPath
+Path to a semicolon-delimited CSV file (columns: EntityType_Id;Identifier;Property;TargetColumnIndex).
+Skips the interactive menu and imports directly.
+
+.PARAMETER ServerInstance
+SQL Server instance name for auto-connect mode (e.g. "localhost\SQLEXPRESS").
+
+.PARAMETER Database
+Database name for auto-connect mode (e.g. "Usercube").
+
+.PARAMETER Login
+SQL Server login for auto-connect mode.
+
+.PARAMETER Password
+SQL Server password for auto-connect mode.
 
 .EXAMPLE
 Initialize-Workspace
-# Interactive: the wizard asks for the XML file path.
+# Interactive: the wizard asks how to import.
 
 .EXAMPLE
-Initialize-Workspace -XmlPath ".\entityTypes.xml"
-# Non-interactive: generates resource-columns.json directly.
+Initialize-Workspace -CsvPath ".\export.csv"
+# Non-interactive: imports from CSV directly.
+
+.EXAMPLE
+Initialize-Workspace -ServerInstance "myserver" -Database "Usercube" -Login "sa" -Password "pass"
+# Non-interactive: connects to SQL Server and imports directly.
 #>
 function Initialize-Workspace {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$false)]
-        [string]$XmlPath
+        [string]$CsvPath,
+
+        [Parameter(Mandatory=$false)]
+        [string]$ServerInstance,
+
+        [Parameter(Mandatory=$false)]
+        [string]$Database,
+
+        [Parameter(Mandatory=$false)]
+        [string]$Login,
+
+        [Parameter(Mandatory=$false)]
+        [string]$Password
     )
 
     $configRoot = Split-Path $script:DefaultConfigPath -Parent
     $customDir  = [System.IO.Path]::GetFullPath((Join-Path $configRoot 'Custom'))
     $outputPath = Join-Path $customDir 'resource-columns.json'
-    $samplePath = [System.IO.Path]::GetFullPath((Join-Path $configRoot '..\SampleData\entityTypes_example.xml'))
+    $sampleCsv  = [System.IO.Path]::GetFullPath((Join-Path $configRoot '..\SampleData\import_example.csv'))
+    $sqlFile    = [System.IO.Path]::GetFullPath((Join-Path $configRoot '..\Scripts\Get-EntityTypeProperties.sql'))
 
     Write-Host ''
     Write-Host '========================================' -ForegroundColor Cyan
@@ -172,56 +261,129 @@ function Initialize-Workspace {
         Write-Host "  $outputPath" -ForegroundColor Gray
         Write-Host ''
         Write-Host 'To add or update EntityTypes, use:' -ForegroundColor Gray
-        Write-Host '  Update-SQueryEntityTypes -XmlPath <path> [-Merge]' -ForegroundColor White
+        Write-Host '  Update-SQueryEntityTypes -CsvPath <path> [-Merge]' -ForegroundColor White
         Write-Host ''
         return
     }
 
-    Write-Host 'This wizard generates your project-specific EntityType column' -ForegroundColor Gray
-    Write-Host 'mappings from an Identity Manager XML export.' -ForegroundColor Gray
-    Write-Host ''
-    Write-Host 'Output: ' -ForegroundColor Gray -NoNewline
-    Write-Host $outputPath -ForegroundColor White
-    Write-Host ''
+    # Determine import mode
+    $mode = $null
+    $entityTypes = $null
 
-    # Step 1: get the XML path
-    Write-Host 'Step 1: Provide your EntityType XML export.' -ForegroundColor Cyan
-    Write-Host '  Export from IM Admin Console: Administration > EntityTypes > Export' -ForegroundColor Gray
-    if (Test-Path $samplePath) {
-        Write-Host "  Format reference: $samplePath" -ForegroundColor Gray
-    } else {
-        Write-Host '  See SampleData\entityTypes_example.xml for the expected format.' -ForegroundColor Gray
-    }
-    Write-Host ''
-
-    if ([string]::IsNullOrWhiteSpace($XmlPath)) {
-        $XmlPath = (Read-Host '  Enter path to your EntityType XML file').Trim('" ')
+    # Non-interactive: params provided directly
+    if (-not [string]::IsNullOrWhiteSpace($CsvPath)) {
+        $mode = 'csv'
+    } elseif (-not [string]::IsNullOrWhiteSpace($ServerInstance)) {
+        $mode = 'auto'
     }
 
-    if ([string]::IsNullOrWhiteSpace($XmlPath)) {
-        Write-Host '  No file provided. Setup cancelled.' -ForegroundColor Yellow
-        return
+    # Interactive: ask the user
+    if ($null -eq $mode) {
+        Write-Host 'This wizard generates your project-specific EntityType column' -ForegroundColor Gray
+        Write-Host 'mappings for Resource EntityTypes.' -ForegroundColor Gray
+        Write-Host ''
+        Write-Host 'Output: ' -ForegroundColor Gray -NoNewline
+        Write-Host $outputPath -ForegroundColor White
+        Write-Host ''
+        Write-Host 'Choose import method:' -ForegroundColor Cyan
+        Write-Host '  [1] AUTO   - Connect to SQL Server (runs discovery query directly)' -ForegroundColor White
+        Write-Host '  [2] MANUAL - Import from CSV file (export from SSMS first)' -ForegroundColor White
+        Write-Host ''
+
+        $choice = (Read-Host '  Enter choice (1 or 2)').Trim()
+        switch ($choice) {
+            '1' { $mode = 'auto' }
+            '2' { $mode = 'csv' }
+            default {
+                Write-Host "  Invalid choice '$choice'. Setup cancelled." -ForegroundColor Yellow
+                return
+            }
+        }
     }
 
-    if (-not (Test-Path $XmlPath)) {
-        Write-Host "  File not found: $XmlPath" -ForegroundColor Red
-        return
-    }
-
-    # Step 2: parse and write
     Write-Host ''
-    Write-Host 'Step 2: Importing EntityTypes...' -ForegroundColor Cyan
-    Write-Host ''
 
-    try {
-        $entityTypes = Read-EntityTypesFromXml -XmlPath $XmlPath
-    } catch {
-        Write-Host "  Failed: $($_.Exception.Message)" -ForegroundColor Red
-        return
+    # --- AUTO mode: connect to SQL Server ---
+    if ($mode -eq 'auto') {
+        Write-Host 'Step 1: SQL Server Connection' -ForegroundColor Cyan
+        if (Test-Path $sqlFile) {
+            Write-Host "  Query file: $sqlFile" -ForegroundColor Gray
+        }
+        Write-Host ''
+
+        if ([string]::IsNullOrWhiteSpace($ServerInstance)) {
+            $ServerInstance = (Read-Host '  Server instance (e.g. localhost\SQLEXPRESS)').Trim()
+        }
+        if ([string]::IsNullOrWhiteSpace($Database)) {
+            $Database = (Read-Host '  Database name (e.g. Usercube)').Trim()
+        }
+        if ([string]::IsNullOrWhiteSpace($Login)) {
+            $Login = (Read-Host '  Login').Trim()
+        }
+        if ([string]::IsNullOrWhiteSpace($Password)) {
+            $Password = (Read-Host '  Password').Trim()
+        }
+
+        if ([string]::IsNullOrWhiteSpace($ServerInstance) -or [string]::IsNullOrWhiteSpace($Database) -or
+            [string]::IsNullOrWhiteSpace($Login) -or [string]::IsNullOrWhiteSpace($Password)) {
+            Write-Host '  Missing connection details. Setup cancelled.' -ForegroundColor Yellow
+            return
+        }
+
+        Write-Host ''
+        Write-Host 'Step 2: Connecting and importing...' -ForegroundColor Cyan
+        Write-Host ''
+
+        try {
+            $entityTypes = Read-EntityTypesFromSqlServer -ServerInstance $ServerInstance -Database $Database -Login $Login -Password $Password
+        } catch {
+            Write-Host "  Failed: $($_.Exception.Message)" -ForegroundColor Red
+            return
+        }
     }
 
-    if ($entityTypes.Count -eq 0) {
-        Write-Host '  No EntityType elements found in the XML.' -ForegroundColor Yellow
+    # --- MANUAL/CSV mode ---
+    if ($mode -eq 'csv') {
+        Write-Host 'Step 1: Provide your CSV export.' -ForegroundColor Cyan
+        Write-Host '  Run this query in SSMS and export result as semicolon-delimited CSV:' -ForegroundColor Gray
+        if (Test-Path $sqlFile) {
+            Write-Host "  Query file: $sqlFile" -ForegroundColor Gray
+        }
+        Write-Host '  Expected columns: EntityType_Id;Identifier;Property;TargetColumnIndex' -ForegroundColor Gray
+        if (Test-Path $sampleCsv) {
+            Write-Host "  Sample file: $sampleCsv" -ForegroundColor Gray
+        }
+        Write-Host ''
+
+        if ([string]::IsNullOrWhiteSpace($CsvPath)) {
+            $CsvPath = (Read-Host '  Enter path to your CSV file').Trim('" ')
+        }
+
+        if ([string]::IsNullOrWhiteSpace($CsvPath)) {
+            Write-Host '  No file provided. Setup cancelled.' -ForegroundColor Yellow
+            return
+        }
+
+        if (-not (Test-Path $CsvPath)) {
+            Write-Host "  File not found: $CsvPath" -ForegroundColor Red
+            return
+        }
+
+        Write-Host ''
+        Write-Host 'Step 2: Importing EntityTypes...' -ForegroundColor Cyan
+        Write-Host ''
+
+        try {
+            $entityTypes = Read-EntityTypesFromCsv -CsvPath $CsvPath
+        } catch {
+            Write-Host "  Failed: $($_.Exception.Message)" -ForegroundColor Red
+            return
+        }
+    }
+
+    # --- Write output ---
+    if ($null -eq $entityTypes -or $entityTypes.Count -eq 0) {
+        Write-Host '  No EntityTypes found.' -ForegroundColor Yellow
         return
     }
 
@@ -231,10 +393,7 @@ function Initialize-Workspace {
 
     Write-ResourceColumnsJson -OutputPath $outputPath -EntityTypes $entityTypes
 
-    foreach ($en in $entityTypes.Keys) {
-        $colCount = $entityTypes[$en].columns.Count - 1
-        Write-Host "  $en : $colCount columns (alias=$($entityTypes[$en].alias))" -ForegroundColor Gray
-    }
+    Show-ImportSummary -EntityTypes $entityTypes
 
     Write-Host ''
     Write-Host "Imported $($entityTypes.Count) EntityType(s)." -ForegroundColor Green
@@ -246,33 +405,61 @@ function Initialize-Workspace {
 
 <#
 .SYNOPSIS
-Import or update Resource EntityType column mappings from XML.
+Import or update Resource EntityType column mappings.
 
 .DESCRIPTION
-Parses an Identity Manager EntityType XML export and writes (or merges into)
+Parses a CSV export (or connects to SQL Server) and writes (or merges into)
 Configs/Custom/resource-columns.json. Use -Merge to add new EntityTypes
 without replacing existing ones.
 
-.PARAMETER XmlPath
-Path to the EntityType XML export file.
+.PARAMETER CsvPath
+Path to a semicolon-delimited CSV file (columns: EntityType_Id;Identifier;Property;TargetColumnIndex).
+
+.PARAMETER ServerInstance
+SQL Server instance name for auto-connect mode.
+
+.PARAMETER Database
+Database name for auto-connect mode.
+
+.PARAMETER Login
+SQL Server login for auto-connect mode.
+
+.PARAMETER Password
+SQL Server password for auto-connect mode.
 
 .PARAMETER Merge
 If specified, new EntityTypes are added to the existing Custom/resource-columns.json.
 Existing EntityTypes with the same name are updated; others are preserved.
 
 .EXAMPLE
-Update-SQueryEntityTypes -XmlPath ".\new_export.xml"
-# Replaces Custom/resource-columns.json entirely.
+Update-SQueryEntityTypes -CsvPath ".\export.csv"
+# Replaces Custom/resource-columns.json entirely from CSV.
 
 .EXAMPLE
-Update-SQueryEntityTypes -XmlPath ".\additional_types.xml" -Merge
+Update-SQueryEntityTypes -CsvPath ".\additional.csv" -Merge
 # Merges new EntityTypes into the existing file.
+
+.EXAMPLE
+Update-SQueryEntityTypes -ServerInstance "myserver" -Database "Usercube" -Login "sa" -Password "pass"
+# Replaces Custom/resource-columns.json from SQL Server.
 #>
 function Update-SQueryEntityTypes {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName='FromCsv')]
     param(
-        [Parameter(Mandatory=$true, Position=0)]
-        [string]$XmlPath,
+        [Parameter(Mandatory=$true, ParameterSetName='FromCsv', Position=0)]
+        [string]$CsvPath,
+
+        [Parameter(Mandatory=$true, ParameterSetName='FromSqlServer')]
+        [string]$ServerInstance,
+
+        [Parameter(Mandatory=$true, ParameterSetName='FromSqlServer')]
+        [string]$Database,
+
+        [Parameter(Mandatory=$true, ParameterSetName='FromSqlServer')]
+        [string]$Login,
+
+        [Parameter(Mandatory=$true, ParameterSetName='FromSqlServer')]
+        [string]$Password,
 
         [Parameter(Mandatory=$false)]
         [switch]$Merge
@@ -282,21 +469,25 @@ function Update-SQueryEntityTypes {
     $customDir  = [System.IO.Path]::GetFullPath((Join-Path $configRoot 'Custom'))
     $outputPath = Join-Path $customDir 'resource-columns.json'
 
-    if (-not (Test-Path $XmlPath)) {
-        Write-Error "File not found: $XmlPath"
-        return
-    }
-
+    # Parse EntityTypes from the chosen source
     Write-Host 'Parsing EntityTypes...' -ForegroundColor Gray
     try {
-        $newEntityTypes = Read-EntityTypesFromXml -XmlPath $XmlPath
+        if ($PSCmdlet.ParameterSetName -eq 'FromCsv') {
+            if (-not (Test-Path $CsvPath)) {
+                Write-Error "File not found: $CsvPath"
+                return
+            }
+            $newEntityTypes = Read-EntityTypesFromCsv -CsvPath $CsvPath
+        } else {
+            $newEntityTypes = Read-EntityTypesFromSqlServer -ServerInstance $ServerInstance -Database $Database -Login $Login -Password $Password
+        }
     } catch {
-        Write-Error "Failed to parse XML: $($_.Exception.Message)"
+        Write-Error "Failed: $($_.Exception.Message)"
         return
     }
 
     if ($newEntityTypes.Count -eq 0) {
-        Write-Host 'No EntityType elements found in the XML.' -ForegroundColor Yellow
+        Write-Host 'No EntityTypes found.' -ForegroundColor Yellow
         return
     }
 
@@ -311,7 +502,7 @@ function Update-SQueryEntityTypes {
     $updated = [System.Collections.ArrayList]::new()
     foreach ($en in $newEntityTypes.Keys) {
         if ($final.Contains($en)) { $null = $updated.Add($en) }
-        else                         { $null = $added.Add($en)   }
+        else                      { $null = $added.Add($en)   }
         # Preserve custom alias if merging
         if ($Merge -and $final.Contains($en) -and $final[$en].alias) {
             $newEntityTypes[$en].alias = $final[$en].alias

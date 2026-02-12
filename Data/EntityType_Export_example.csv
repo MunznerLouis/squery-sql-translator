@@ -1,0 +1,15 @@
+EntityType_Id;Identifier;Property;TargetColumnIndex
+20;Acme_Group;Description;3
+20;Acme_Group;Dn;4
+20;Acme_Group;Cn;5
+20;Acme_Group;objectGuid;6
+20;Acme_Group;ParentOU;128
+20;Acme_Person;FirstName;5
+20;Acme_Person;LastName;6
+20;Acme_Person;Email;7
+20;Acme_Person;Login;4
+20;Acme_Person;EmployeeId;8
+20;Acme_Person;Department;128
+20;Acme_Site;DisplayName;5
+20;Acme_Site;Identifier;4
+20;Acme_Site;Country;6

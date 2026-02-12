@@ -1,5 +1,6 @@
 ﻿# test_resource_entity_types.ps1
 # Tests for Resource EntityType root entity support (Phase 2)
+# With real entityTypeId values, the Transformer uses WHERE Type=N instead of INNER JOIN UM_EntityTypes.
 
 Import-Module "$PSScriptRoot\..\Core\SQuery-SQL-Translator.psm1" -Force
 
@@ -30,12 +31,13 @@ function Test-Case {
     }
 }
 
-# Test 1: Directory_FR_User root - simple select, should get UM_EntityTypes INNER JOIN
+# Test 1: Directory_FR_User root - entityTypeId=2015 -> WHERE Type=2015 (no INNER JOIN UM_EntityTypes)
 Test-Case `
-    -Label "1. Directory_FR_User root - EntityType INNER JOIN injected" `
+    -Label "1. Directory_FR_User root - WHERE Type=2015 injected" `
     -SQuery "select Id, DisplayName, Identifier" `
     -RootEntity "Directory_FR_User" `
-    -ExpectContains "INNER JOIN [dbo].[UM_EntityTypes]"
+    -ExpectContains "dfru.Type = 2015" `
+    -ExpectNotContains "INNER JOIN [dbo].[UM_EntityTypes]"
 
 # Test 2: Directory_FR_User root - DisplayName maps to CC column
 Test-Case `
@@ -52,7 +54,7 @@ Test-Case `
     -RootEntity "Directory_FR_User" `
     -ExpectContains "FROM [dbo].[UR_Resources]"
 
-# Test 4: Directory_FR_User + PresenceState join (double JOIN)
+# Test 4: Directory_FR_User + PresenceState join (double JOIN via resourceSubType)
 Test-Case `
     -Label "4. Directory_FR_User PresenceState join (double JOIN)" `
     -SQuery "join PresenceState ps select Id, ps.Id, PresenceState_Id" `
@@ -73,12 +75,13 @@ Test-Case `
     -RootEntity "Directory_FR_User" `
     -ExpectContains "LEFT JOIN [dbo].[UR_Resources] org"
 
-# Test 7: Workday_Person_FR root - EntityType INNER JOIN injected
+# Test 7: Workday_Person_FR root - entityTypeId=2045 -> WHERE Type=2045
 Test-Case `
-    -Label "7. Workday_Person_FR root - EntityType INNER JOIN" `
+    -Label "7. Workday_Person_FR root - WHERE Type=2045" `
     -SQuery "select Id, FirstName, LastName" `
     -RootEntity "Workday_Person_FR" `
-    -ExpectContains "INNER JOIN [dbo].[UM_EntityTypes]"
+    -ExpectContains "wpfr.Type = 2045" `
+    -ExpectNotContains "INNER JOIN [dbo].[UM_EntityTypes]"
 
 # Test 8: Workday_Person_FR Manager join
 Test-Case `
@@ -87,19 +90,19 @@ Test-Case `
     -RootEntity "Workday_Person_FR" `
     -ExpectContains "LEFT JOIN [dbo].[UR_Resources] mgr ON"
 
-# Test 9: SAP_Person root
+# Test 9: SAP_Person root - entityTypeId=2027
 Test-Case `
-    -Label "9. SAP_Person root - FROM UR_Resources + EntityType JOIN" `
+    -Label "9. SAP_Person root - FROM UR_Resources + WHERE Type=2027" `
     -SQuery "select Id, logon, surname" `
     -RootEntity "SAP_Person" `
     -ExpectContains "FROM [dbo].[UR_Resources]"
 
-# Test 10: Directory_FR_User with WHERE
+# Test 10: Directory_FR_User with WHERE - entityTypeId filter prepended
 Test-Case `
-    -Label "10. Directory_FR_User WHERE on C-column (PresenceState_Id)" `
+    -Label "10. Directory_FR_User WHERE with Type filter prepended" `
     -SQuery "select Id where PresenceState_Id = 42" `
     -RootEntity "Directory_FR_User" `
-    -ExpectContains ".C40 = 42"
+    -ExpectContains "dfru.Type = 2015 AND (dfru.C40 = 42)"
 
 Write-Host "`n=========================================="
 Write-Host "Results: $pass passed, $fail failed"

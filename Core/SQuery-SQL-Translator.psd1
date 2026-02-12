@@ -5,7 +5,7 @@
     RootModule = 'SQuery-SQL-Translator.psm1'
 
     # Version number of this module
-    ModuleVersion = '1.2.0'
+    ModuleVersion = '1.3.0'
 
     # Supported PSEditions
     CompatiblePSEditions = @('Core', 'Desktop')
@@ -78,6 +78,16 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
+## v1.3.0
+
+- CSV import support for Resource EntityType column mappings (semicolon-delimited).
+- SQL Server auto-connect mode: discovers EntityTypes directly from the IM database.
+- Real entityTypeId values: uses WHERE Type=N instead of INNER JOIN UM_EntityTypes (faster).
+- Interactive SQuery-To-SQL.ps1 launcher script with menu-driven workflow.
+- 64 Resource EntityTypes included in Default config out of the box.
+- Initialize-Workspace wizard with AUTO (SQL Server) and MANUAL (CSV) modes.
+- Discovery SQL query saved in Scripts/Get-EntityTypeProperties.sql for reference.
+
 ## v1.2.0
 
 - WHERE values are now inlined as SQL literals in the output query (numbers unquoted,
