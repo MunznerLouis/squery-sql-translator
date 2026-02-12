@@ -67,6 +67,31 @@ class SqlQueryBuilder {
         return $this
     }
 
+    # Format a parameter value as a SQL literal (for inlining into the query string).
+    [string] FormatSqlValue([object]$value) {
+        if ($null -eq $value) { return 'NULL' }
+        if ($value -is [bool]) { return if ($value) { '1' } else { '0' } }
+        if ($value -is [int]     -or $value -is [long]    -or $value -is [int16]  -or
+            $value -is [double]  -or $value -is [float]   -or $value -is [decimal] -or
+            $value -is [uint32]  -or $value -is [uint64]  -or $value -is [byte]) {
+            return $value.ToString()
+        }
+        # String: escape embedded single-quotes
+        return "'" + $value.ToString().Replace("'", "''") + "'"
+    }
+
+    # Replace every @pN placeholder with the corresponding SQL literal.
+    [string] InlineParameters([string]$sql) {
+        if ($this.Parameters.Count -eq 0) { return $sql }
+        $result  = $sql
+        # Sort by key-length descending so @p10 is replaced before @p1
+        $entries = $this.Parameters.GetEnumerator() | Sort-Object { $_.Key.Length } -Descending
+        foreach ($entry in $entries) {
+            $result = $result.Replace("@$($entry.Key)", $this.FormatSqlValue($entry.Value))
+        }
+        return $result
+    }
+
     [hashtable] Build() {
         # SELECT clause - TOP N goes here for SQL Server
         $topClause    = if ($this.TopValue -gt 0) { "TOP $($this.TopValue) " } else { "" }
@@ -110,10 +135,10 @@ class SqlQueryBuilder {
         if (-not [string]::IsNullOrWhiteSpace($orderClause))   { $null = $parts.Add($orderClause) }
         if (-not [string]::IsNullOrWhiteSpace($limitClause))   { $null = $parts.Add($limitClause) }
 
-        $query = $parts.ToArray() -join "`n"
+        $rawQuery = $parts.ToArray() -join "`n"
 
         return @{
-            Query      = $query
+            Query      = $this.InlineParameters($rawQuery)
             Parameters = $this.Parameters
         }
     }
@@ -148,7 +173,7 @@ class SQueryTransformer {
         $builder = [SqlQueryBuilder]::new()
         $builder.Parameters = $this.Parameters
 
-        # Root entity → FROM
+        # Root entity -> FROM
         $tableMapping = $this.Config.GetTableMapping($this.AST.RootEntity)
         $rootAlias    = $tableMapping.alias
         $builder.FromTable($tableMapping.tableName, $rootAlias)
@@ -156,12 +181,17 @@ class SQueryTransformer {
         # Track the root entity alias
         $this.AliasToEntity[$rootAlias] = $this.AST.RootEntity
 
+        # Resource EntityType: inject EntityType filter when entityTypeId is unknown (0)
+        # Uses INNER JOIN on UM_EntityTypes to filter by the concrete entity type name.
+        $resEntityConfig = $this.Config.GetResourceEntityConfig($this.AST.RootEntity)
+        if ($null -ne $resEntityConfig -and $resEntityConfig.entityTypeId -eq 0) {
+            $etAlias = "${rootAlias}_et"
+            $null = $builder.AddJoin("INNER JOIN [dbo].[UM_EntityTypes] ${etAlias} ON ${etAlias}.Id = ${rootAlias}.Type AND ${etAlias}.Identifier = '$($this.AST.RootEntity)'")
+        }
+
         # JOINs
         foreach ($joinNode in $this.AST.Joins) {
-            $joinSql = $this.TransformJoin($joinNode, $rootAlias)
-            if (-not [string]::IsNullOrWhiteSpace($joinSql)) {
-                $builder.AddJoin($joinSql)
-            }
+            $this.TransformJoin($joinNode, $rootAlias, $builder)
         }
 
         # SELECT
@@ -170,10 +200,21 @@ class SQueryTransformer {
             $builder.AddSelect($selectFields)
         }
 
-        # WHERE
+        # WHERE (with optional entityTypeId > 0 filter prepended)
+        $userWhere = $null
         if ($null -ne $this.AST.Where) {
-            $whereSql = $this.TransformWhereExpr($this.AST.Where, $rootAlias)
-            $builder.SetWhere($whereSql)
+            $userWhere = $this.TransformWhereExpr($this.AST.Where, $rootAlias)
+        }
+        $typeFilter = $null
+        if ($null -ne $resEntityConfig -and $resEntityConfig.entityTypeId -gt 0) {
+            $typeFilter = "${rootAlias}.Type = $($resEntityConfig.entityTypeId)"
+        }
+        if ($null -ne $typeFilter -and $null -ne $userWhere) {
+            $builder.SetWhere("$typeFilter AND ($userWhere)")
+        } elseif ($null -ne $typeFilter) {
+            $builder.SetWhere($typeFilter)
+        } elseif ($null -ne $userWhere) {
+            $builder.SetWhere($userWhere)
         }
 
         # ORDER BY
@@ -198,7 +239,9 @@ class SQueryTransformer {
     #   "r.Policy"              → nav prop on alias "r"
     #   "Entity:TypeFilter"     → colon-notation typed join (same as "of type")
 
-    [string] TransformJoin([object]$joinNode, [string]$rootAlias) {
+    # TransformJoin: emits one or two JOINs directly into builder.
+    # Two JOINs are emitted when navProp has a "resourceSubType" key (Resource-to-Resource subtype navigation).
+    [void] TransformJoin([object]$joinNode, [string]$rootAlias, [object]$builder) {
         $entityPath  = $joinNode.EntityPath
         $alias       = $joinNode.Alias
 
@@ -207,7 +250,7 @@ class SQueryTransformer {
         $navPropName = $entityPath
 
         if ($entityPath -match '\.') {
-            # Chained: "r.Policy" → parent="r", nav="Policy"
+            # Chained: "r.Policy" -> parent="r", nav="Policy"
             $dotIdx      = $entityPath.IndexOf('.')
             $parentAlias = $entityPath.Substring(0, $dotIdx)
             $navPropName = $entityPath.Substring($dotIdx + 1)
@@ -231,18 +274,25 @@ class SQueryTransformer {
             Write-Warning "SQueryTransformer: no navigation property '$navPropName' defined for entity '$parentEntity' (join alias '$alias')"
             # Track the alias anyway so chained joins can reference it
             $this.AliasToEntity[$alias] = $navPropName
-            return $null
+            return
         }
 
-        # Build JOIN SQL
-        $joinType = if ($navProp.ContainsKey('joinType')) { $navProp.joinType } else { 'LEFT' }
-        $joinSql  = "$joinType JOIN $($navProp.targetTable) $alias ON $parentAlias.$($navProp.localKey) = $alias.$($navProp.foreignKey)"
+        # resourceSubType: double JOIN for Resource-to-Resource subtype navigation.
+        # First JOIN resolves the EntityType Id; second JOIN filters UR_Resources by Type.
+        if ($navProp.ContainsKey('resourceSubType')) {
+            $rsType  = $navProp.resourceSubType
+            $etAlias = "${alias}_et"
+            $null = $builder.AddJoin("LEFT JOIN [dbo].[UM_EntityTypes] ${etAlias} ON ${etAlias}.Identifier = '$rsType'")
+            $null = $builder.AddJoin("LEFT JOIN $($navProp.targetTable) $alias ON $parentAlias.$($navProp.localKey) = $alias.$($navProp.foreignKey) AND $alias.Type = ${etAlias}.Id")
+        } else {
+            # Standard single JOIN
+            $joinType = if ($navProp.ContainsKey('joinType')) { $navProp.joinType } else { 'LEFT' }
+            $null = $builder.AddJoin("$joinType JOIN $($navProp.targetTable) $alias ON $parentAlias.$($navProp.localKey) = $alias.$($navProp.foreignKey)")
+        }
 
-        # Track alias → target entity
+        # Track alias -> target entity
         $targetEntity = if ($navProp.ContainsKey('targetEntity')) { $navProp.targetEntity } else { $navPropName }
         $this.AliasToEntity[$alias] = $targetEntity
-
-        return $joinSql
     }
 
     # -- SELECT ----------------------------------------------------------------

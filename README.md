@@ -1,11 +1,13 @@
-# SQuery-SQL-Translator
+﻿# SQuery-SQL-Translator
 
 > Bidirectional translator between SQuery and SQL
 
-Convert SQuery URLs to SQL queries and SQL queries back to SQuery URLs.
+- Convert SQuery URLs to SQL queries and SQL queries back to SQuery URLs.
 Fully configurable to adapt to any database schema.
-This project has been heavily thought to be compatible in the scope of Netwrix Identity Manager software, and might not work as intended for a bigger scope that that.
-If this project doesn't satisfy your needs, you can find a similar project here : https://github.com/velmie/q2sql
+This project has been heavily thought to be compatible in the scope of the Netwrix Identity Manager software, and might not work as intended for a bigger scope that that.
+- Compatible with Powershell 5.1 
+
+- If this project doesn't satisfy your needs, you can find a similar project here : https://github.com/velmie/q2sql
 
 ## 🚀 Quick Start
 ```powershell
@@ -119,5 +121,3 @@ Contributions are welcome! Please read the contributing guidelines first.
 
 - Issues: https://github.com/you/SQuery-SQL-Translator/issues
 - Discussions: https://github.com/you/SQuery-SQL-Translator/discussions
-
-A little bit of AI generated code might be involved

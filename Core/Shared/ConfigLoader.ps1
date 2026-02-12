@@ -6,6 +6,7 @@ class ConfigLoader {
     [hashtable]$ColumnRules
     [hashtable]$Operators
     [hashtable]$JoinPatterns
+    [hashtable]$ResourceColumns
     [string]$ConfigPath
 
     ConfigLoader([string]$configPath) {
@@ -40,13 +41,22 @@ class ConfigLoader {
             $operatorsJson = Get-Content $operatorsPath -Raw | ConvertFrom-Json
             $this.Operators = $this.ConvertToHashtable($operatorsJson)
 
-            # Join patterns optional for Phase 1
+            # Join patterns optional
             $joinPatternsPath = Join-Path $this.ConfigPath "join-patterns.json"
             if (Test-Path $joinPatternsPath) {
                 $joinPatternsJson = Get-Content $joinPatternsPath -Raw | ConvertFrom-Json
                 $this.JoinPatterns = $this.ConvertToHashtable($joinPatternsJson)
             } else {
                 $this.JoinPatterns = @{}
+            }
+
+            # Resource columns optional (Resource EntityType attribute mapping)
+            $resourceColumnsPath = Join-Path $this.ConfigPath "resource-columns.json"
+            if (Test-Path $resourceColumnsPath) {
+                $resourceColumnsJson = Get-Content $resourceColumnsPath -Raw | ConvertFrom-Json
+                $this.ResourceColumns = $this.ConvertToHashtable($resourceColumnsJson)
+            } else {
+                $this.ResourceColumns = @{}
             }
 
             # Validate configurations
@@ -118,6 +128,15 @@ class ConfigLoader {
         if ($this.DatabaseMapping.tables.ContainsKey($entityName)) {
             return $this.DatabaseMapping.tables[$entityName]
         }
+        # Fallback: Resource EntityType entities share [dbo].[UR_Resources]
+        $resConfig = $this.GetResourceEntityConfig($entityName)
+        if ($null -ne $resConfig) {
+            return @{
+                tableName     = '[dbo].[UR_Resources]'
+                alias         = $resConfig.alias
+                allowedFields = @('*')
+            }
+        }
         throw "Entity '$entityName' not found in database-mapping.json"
     }
 
@@ -134,21 +153,27 @@ class ConfigLoader {
 
     # Returns the DB column name for a given SQuery field name, applying:
     #   1. Entity-specific override from column-rules.json
-    #   2. Global renames (e.g. DisplayName -> DisplayName_L1)
-    #   3. Auto-rename: FooId -> Foo_Id  (FK naming; skips bare "Id" and already-underscored "_Id")
+    #   2. Resource EntityType column map from resource-columns.json (e.g. DisplayName -> CC)
+    #   3. Global renames (e.g. DisplayName -> DisplayName_L1)
+    #   4. Auto-rename: FooId -> Foo_Id  (FK naming; skips bare "Id" and already-underscored "_Id")
     [string] GetColumnDbName([string]$entityName, [string]$fieldName) {
-        # 1. Entity-specific override
+        # 1. Entity-specific override from column-rules.json
         if ($this.ColumnRules.entities.ContainsKey($entityName)) {
             $er = $this.ColumnRules.entities[$entityName]
             if ($er.ContainsKey($fieldName) -and $er[$fieldName].ContainsKey('dbColumn')) {
                 return $er[$fieldName].dbColumn
             }
         }
-        # 2. Global renames
+        # 2. Resource EntityType column map (has priority over globalRenames for Resource subtypes)
+        $resConfig = $this.GetResourceEntityConfig($entityName)
+        if ($null -ne $resConfig -and $resConfig.columns.ContainsKey($fieldName)) {
+            return $resConfig.columns[$fieldName]
+        }
+        # 3. Global renames
         if ($this.ColumnRules.ContainsKey('globalRenames') -and $this.ColumnRules.globalRenames.ContainsKey($fieldName)) {
             return $this.ColumnRules.globalRenames[$fieldName]
         }
-        # 3. FK auto-rename: FooId -> Foo_Id (not bare "Id", not already "Foo_Id")
+        # 4. FK auto-rename: FooId -> Foo_Id (not bare "Id", not already "Foo_Id")
         if ($fieldName -ne 'Id' -and $fieldName.EndsWith('Id') -and -not $fieldName.EndsWith('_Id')) {
             return $fieldName.Substring(0, $fieldName.Length - 2) + '_Id'
         }
@@ -157,7 +182,10 @@ class ConfigLoader {
 
     # Returns navigation property definition for an entity, or $null if not found.
     # join-patterns.json structure:
-    #   { "navigationProperties": { "EntityName": { "NavProp": { targetTable, targetEntity, localKey, foreignKey } } } }
+    #   { "navigationProperties": { "EntityName": { "NavProp": { targetTable, targetEntity[, localKey][, foreignKey] } } } }
+    # FK convention defaults (applied when keys are absent):
+    #   localKey  -> "{navPropName}_Id"
+    #   foreignKey -> "Id"
     [hashtable] GetNavProp([string]$entityName, [string]$navPropName) {
         if ($null -eq $this.JoinPatterns -or -not $this.JoinPatterns.ContainsKey('navigationProperties')) {
             return $null
@@ -170,7 +198,28 @@ class ConfigLoader {
         if (-not $entityNavProps.ContainsKey($navPropName)) {
             return $null
         }
-        return $entityNavProps[$navPropName]
+        $raw = $entityNavProps[$navPropName]
+        # Apply FK convention defaults if either key is absent (avoids mutating cached config)
+        $hasLocal   = $raw.ContainsKey('localKey')
+        $hasForeign = $raw.ContainsKey('foreignKey')
+        if ($hasLocal -and $hasForeign) { return $raw }
+        $result = @{}
+        foreach ($k in $raw.Keys) { $result[$k] = $raw[$k] }
+        if (-not $hasLocal)   { $result['localKey']   = "${navPropName}_Id" }
+        if (-not $hasForeign) { $result['foreignKey'] = 'Id' }
+        return $result
+    }
+
+    # Returns resource-columns.json config for a Resource EntityType, or $null if not a Resource subtype.
+    [hashtable] GetResourceEntityConfig([string]$entityName) {
+        if ($null -eq $this.ResourceColumns -or -not $this.ResourceColumns.ContainsKey('entityTypes')) {
+            return $null
+        }
+        $et = $this.ResourceColumns.entityTypes
+        if ($et.ContainsKey($entityName)) {
+            return $et[$entityName]
+        }
+        return $null
     }
 
     # Helper method to convert PSCustomObject to Hashtable recursively

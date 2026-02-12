@@ -5,7 +5,7 @@
     RootModule = 'SQuery-SQL-Translator.psm1'
 
     # Version number of this module
-    ModuleVersion = '1.0.0'
+    ModuleVersion = '1.2.0'
 
     # Supported PSEditions
     CompatiblePSEditions = @('Core', 'Desktop')
@@ -23,7 +23,7 @@
     Copyright = '(c) 2026. All rights reserved.'
 
     # Description of the functionality provided by this module
-    Description = 'Translates SQuery (SQL-like URL query language used by Brainware/Netwrix Identity Manager) to parameterized SQL. Parses join/select/where/order-by clauses and resolves JOIN navigation properties via JSON configuration.'
+    Description = 'Translates SQuery (SQL-like URL query language used by Netwrix Identity Manager) to SQL. Parses join/select/where/order-by clauses, resolves JOIN navigation properties via JSON configuration, and inlines WHERE values directly into the output query string.'
 
     # Minimum version of the PowerShell engine required by this module
     PowerShellVersion = '5.1'
@@ -69,13 +69,28 @@
             LicenseUri = ''
 
             # A URL to the main website for this project
-            ProjectUri = 'https://github.com/you/SQuery-SQL-Translator'
+            ProjectUri = ''
 
             # A URL to an icon representing this module
             IconUri = ''
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
+## v1.2.0
+
+- WHERE values are now inlined as SQL literals in the output query (numbers unquoted,
+  strings single-quoted, booleans as 1/0, null as NULL).
+- join-patterns.json compact form: localKey defaults to {NavPropName}_Id, foreignKey
+  defaults to Id; only non-standard keys need to be specified explicitly.
+
+## v1.1.0
+
+- Resource EntityType support: Directory_FR_User, Workday_Person_FR, SAP_Person and
+  other UR_Resources subtypes resolve to [dbo].[UR_Resources] with C{index} columns.
+- EntityType filter injected automatically (INNER JOIN UM_EntityTypes or WHERE Type=N).
+- resourceSubType double-JOIN for Resource-to-Resource subtype navigation.
+- entity-specific aliases in database-mapping.json (asr, rcr, rt, wi, etc.).
+
 ## v1.0.0
 
 SQuery grammar supported:
@@ -86,7 +101,6 @@ WHERE operators: = != > >= < <= %=/%=% (LIKE) = null (!= null)
 AND / OR / NOT / parentheses supported.
 
 Config-driven JOIN resolution via join-patterns.json.
-All WHERE values fully parameterized (@p1, @p2, ...).
 '@
         }
     }

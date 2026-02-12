@@ -24,10 +24,9 @@ $script:DefaultConfigPath = Join-Path $ModuleRoot "..\Configs\Default"
 Converts an SQuery URL to a parameterized SQL query.
 
 .DESCRIPTION
-Parses an SQuery-formatted URL query string and converts it to a parameterized SQL query
-based on JSON configuration files. Returns a hashtable with the SQL query and parameters.
-
-All SQL queries are parameterized for security - no SQL injection is possible.
+Parses an SQuery-formatted URL query string and converts it to a SQL query based on JSON
+configuration files. WHERE values are inlined as SQL literals in the output query string.
+Returns a hashtable with the final SQL query and the original parameter values.
 
 .PARAMETER Url
 The complete URL containing SQuery syntax in the query string.
@@ -48,29 +47,16 @@ If specified, only validates the query without generating SQL. Returns validatio
 $url = "http://localhost:5000/api/ProvisioningPolicy/AssignedSingleRole?api-version=1.0&squery=join+Role+r+top+5+select+Id,+StartDate,+r.DisplayName+where+(OwnerType%3D2015)+order+by+Id+desc&QueryRootEntityType=AssignedSingleRole"
 $result = Convert-SQueryToSql -Url $url
 Write-Host $result.Query
-# Output: SELECT TOP 5 t.Id, t.StartDate, r.DisplayName
-#         FROM [dbo].[UP_AssignedSingleRoles] t
-#         LEFT JOIN [dbo].[UP_SingleRoles] r ON t.RoleId = r.Id
-#         WHERE t.OwnerType = @p1
-#         ORDER BY t.Id DESC
-
-$result.Parameters
-# Output: @{ p1 = 2015 }
-
-.EXAMPLE
-$result = Convert-SQueryToSql -QueryString "select Id, DisplayName where ParentId=null order by Id asc" -RootEntity "Category"
-
-.EXAMPLE
-# Validate query without generating SQL
-$validation = Convert-SQueryToSql -Url $url -ValidateOnly
-if ($validation.Valid) {
-    Write-Host "Query is valid!"
-}
+# Output: SELECT TOP 5 asr.Id, asr.StartDate, r.DisplayName_L1
+#         FROM [dbo].[UP_AssignedSingleRoles] asr
+#         LEFT JOIN [dbo].[UP_SingleRoles] r ON asr.Role_Id = r.Id
+#         WHERE asr.OwnerType = 2015
+#         ORDER BY asr.Id DESC
 
 .OUTPUTS
 Hashtable with keys:
-- Query: The parameterized SQL query string
-- Parameters: Hashtable of parameter names and values
+- Query: The SQL query string with values inlined as literals
+- Parameters: Hashtable of the original parameter names and values
 - Warnings: Array of warning messages (if any)
 #>
 function Convert-SQueryToSql {

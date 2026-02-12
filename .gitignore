@@ -2,3 +2,4 @@
 .claude/
 .sample_data/
 Configs/Custom/resource-columns.json
+Configs/Default/resource-columns.json

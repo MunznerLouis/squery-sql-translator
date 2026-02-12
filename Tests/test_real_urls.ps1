@@ -1,4 +1,4 @@
-Import-Module "$PSScriptRoot\Core\SQuery-SQL-Translator.psm1" -Force
+Import-Module "$PSScriptRoot\..\Core\SQuery-SQL-Translator.psm1" -Force
 
 $pass = 0
 $fail = 0
@@ -14,10 +14,6 @@ function Test-Url {
             $script:warn++
         }
         Write-Host $result.Query -ForegroundColor Green
-        if ($result.Parameters.Count -gt 0) {
-            $p = ($result.Parameters.GetEnumerator() | Sort-Object Name | ForEach-Object { "@$($_.Key)=$($_.Value)" }) -join ', '
-            Write-Host "  Params: $p" -ForegroundColor DarkGray
-        }
         $script:pass++
     } catch {
         Write-Host "  ERROR: $($_.Exception.Message)" -ForegroundColor Red
@@ -92,10 +88,10 @@ Test-Url "11. Policy - SimulationPolicy.Id=null AND ProvisioningPolicy.Id=null" 
 'http://localhost:5000/api/ProvisioningPolicy/Policy?api-version=1.0&squery=join+SimulationPolicy+SimulationPolicy+join+ProvisioningPolicy+ProvisioningPolicy+select+Identifier,+DisplayName,+PolicySimulationId,+PolicyProvisioningId+where+(SimulationPolicy.Id+%3D+null+AND+ProvisioningPolicy.Id+%3D+null)&QueryRootEntityType=Policy'
 
 # ---------------------------------------------------------------------------
-# 12. EntityTypeMapping - Connector + EntityType, WHERE c.Id != null
+# 12. ResourceCorrelationRule - full pipeline with chained Policy.SimulationPolicy + LIKE
 # ---------------------------------------------------------------------------
-Test-Url "12. EntityTypeMapping - Connector + EntityType, WHERE != null" `
-'http://localhost:5000/api/Connectors/EntityTypeMapping?api-version=1.0&squery=join+Connector+c+join+EntityType+et+select+c.Id,+c.DisplayName,+et.Id,+et.Identifier,+et.DisplayName+where+c.Id+!%3D+null&QueryRootEntityType=EntityTypeMapping'
+Test-Url "12. ResourceCorrelationRule - chained Policy.SimulationPolicy + LIKE" `
+'http://localhost:5000/api/ProvisioningPolicy/ResourceCorrelationRule?api-version=1.0&squery=join+ResourceType+rt+join+SourceBinding+sb+join+TargetBinding+tb+join+Policy+Policy+join+Policy.SimulationPolicy+PolicySimulationPolicy+top+8+select+PolicyId,+SourceExpression,+TargetExpression,+SourceMatchedConfidenceLevel,+ResourceTypeId,+rt.DisplayName,+rt.FullName,+rt.SourceEntityTypeId,+rt.TargetEntityTypeId,+sb.Path,+tb.Path+where+((EntityTypeId+%3D2015+AND+PolicySimulationPolicy.Id+%3D+null)+AND+rt.FullName%25%3D%25%2231%22)+order+by+ResourceTypeId+asc,+Id+asc&Path=%2FProvisioningPolicy%2FResourceCorrelationRule%2FQuery&QueryRootEntityType=ResourceCorrelationRule'
 
 # ---------------------------------------------------------------------------
 Write-Host "`n==========================================" -ForegroundColor White

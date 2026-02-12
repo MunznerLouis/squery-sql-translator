@@ -1,46 +1,46 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "version": "1.1",
-  "description": "Navigation property definitions for JOIN resolution. localKey/foreignKey use the actual DB column names (Entity_Id convention).",
+  "version": "1.2",
+  "description": "Navigation property definitions for JOIN resolution. When localKey/foreignKey are omitted they default to '{NavPropName}_Id' and 'Id' respectively.",
   "navigationProperties": {
 
     "AssignedSingleRole": {
-      "Role":             { "targetTable": "[dbo].[UP_SingleRoles]",       "targetEntity": "SingleRole",       "localKey": "Role_Id",              "foreignKey": "Id" },
-      "WorkflowInstance": { "targetTable": "[dbo].[UW_WorkflowInstances]", "targetEntity": "WorkflowInstance", "localKey": "WorkflowInstance_Id",  "foreignKey": "Id" },
-      "Owner":            { "targetTable": "[dbo].[UR_Resources]",         "targetEntity": "Resource",         "localKey": "Owner_Id",             "foreignKey": "Id" },
-      "ParametersContext":{ "targetTable": "[dbo].[UP_Contexts]",          "targetEntity": "Context",          "localKey": "ParametersContext_Id", "foreignKey": "Id" }
+      "Role":             { "targetTable": "[dbo].[UP_SingleRoles]",       "targetEntity": "SingleRole"       },
+      "WorkflowInstance": { "targetTable": "[dbo].[UW_WorkflowInstances]", "targetEntity": "WorkflowInstance" },
+      "Owner":            { "targetTable": "[dbo].[UR_Resources]",         "targetEntity": "Resource"         },
+      "ParametersContext":{ "targetTable": "[dbo].[UP_Contexts]",          "targetEntity": "Context"          }
     },
 
     "AssignedCompositeRole": {
-      "Role":             { "targetTable": "[dbo].[UP_CompositeRoles]",    "targetEntity": "CompositeRole",    "localKey": "Role_Id",              "foreignKey": "Id" },
-      "WorkflowInstance": { "targetTable": "[dbo].[UW_WorkflowInstances]", "targetEntity": "WorkflowInstance", "localKey": "WorkflowInstance_Id",  "foreignKey": "Id" },
-      "Owner":            { "targetTable": "[dbo].[UR_Resources]",         "targetEntity": "Resource",         "localKey": "Owner_Id",             "foreignKey": "Id" },
-      "ParametersContext":{ "targetTable": "[dbo].[UP_Contexts]",          "targetEntity": "Context",          "localKey": "ParametersContext_Id", "foreignKey": "Id" }
+      "Role":             { "targetTable": "[dbo].[UP_CompositeRoles]",    "targetEntity": "CompositeRole"    },
+      "WorkflowInstance": { "targetTable": "[dbo].[UW_WorkflowInstances]", "targetEntity": "WorkflowInstance" },
+      "Owner":            { "targetTable": "[dbo].[UR_Resources]",         "targetEntity": "Resource"         },
+      "ParametersContext":{ "targetTable": "[dbo].[UP_Contexts]",          "targetEntity": "Context"          }
     },
 
     "AssignedResourceType": {
-      "Role":             { "targetTable": "[dbo].[UP_ResourceTypes]",     "targetEntity": "ResourceType",     "localKey": "Role_Id",              "foreignKey": "Id" },
-      "WorkflowInstance": { "targetTable": "[dbo].[UW_WorkflowInstances]", "targetEntity": "WorkflowInstance", "localKey": "WorkflowInstance_Id",  "foreignKey": "Id" },
-      "Owner":            { "targetTable": "[dbo].[UR_Resources]",         "targetEntity": "Resource",         "localKey": "Owner_Id",             "foreignKey": "Id" },
-      "ParametersContext":{ "targetTable": "[dbo].[UP_Contexts]",          "targetEntity": "Context",          "localKey": "ParametersContext_Id", "foreignKey": "Id" }
+      "Role":             { "targetTable": "[dbo].[UP_ResourceTypes]",     "targetEntity": "ResourceType"     },
+      "WorkflowInstance": { "targetTable": "[dbo].[UW_WorkflowInstances]", "targetEntity": "WorkflowInstance" },
+      "Owner":            { "targetTable": "[dbo].[UR_Resources]",         "targetEntity": "Resource"         },
+      "ParametersContext":{ "targetTable": "[dbo].[UP_Contexts]",          "targetEntity": "Context"          }
     },
 
     "UserActivityInstance": {
-      "Activity":         { "targetTable": "[dbo].[UW_Activities]",       "targetEntity": "Activity",         "localKey": "Activity_Id",        "foreignKey": "Id" },
-      "WorkflowInstance": { "targetTable": "[dbo].[UW_WorkflowInstances]","targetEntity": "WorkflowInstance", "localKey": "WorkflowInstance_Id","foreignKey": "Id" },
-      "AssignedTo":       { "targetTable": "[dbo].[UR_Resources]",        "targetEntity": "Resource",         "localKey": "AssignedTo_Id",      "foreignKey": "Id" },
-      "Performer":        { "targetTable": "[dbo].[UR_Resources]",        "targetEntity": "Resource",         "localKey": "Performer_Id",       "foreignKey": "Id" }
+      "Activity":         { "targetTable": "[dbo].[UW_Activities]",        "targetEntity": "Activity"         },
+      "WorkflowInstance": { "targetTable": "[dbo].[UW_WorkflowInstances]", "targetEntity": "WorkflowInstance" },
+      "AssignedTo":       { "targetTable": "[dbo].[UR_Resources]",         "targetEntity": "Resource"         },
+      "Performer":        { "targetTable": "[dbo].[UR_Resources]",         "targetEntity": "Resource"         }
     },
 
     "WorkflowInstance": {
-      "Workflow":              { "targetTable": "[dbo].[UW_Workflows]",           "targetEntity": "Workflow",            "localKey": "Workflow_Id",          "foreignKey": "Id" },
-      "CurrentActivity":       { "targetTable": "[dbo].[UW_Activities]",          "targetEntity": "Activity",            "localKey": "CurrentActivity_Id",   "foreignKey": "Id" },
-      "ActivityInstances":     { "targetTable": "[dbo].[UW_ActivityInstances]",   "targetEntity": "UserActivityInstance","localKey": "Id",                   "foreignKey": "WorkflowInstance_Id" },
-      "AssignedSingleRoles":   { "targetTable": "[dbo].[UP_AssignedSingleRoles]", "targetEntity": "AssignedSingleRole",  "localKey": "Id",                   "foreignKey": "WorkflowInstance_Id" },
-      "AssignedCompositeRoles":{ "targetTable": "[dbo].[UP_AssignedCompositeRoles]","targetEntity": "AssignedCompositeRole","localKey": "Id",                 "foreignKey": "WorkflowInstance_Id" },
-      "AssignedResourceTypes": { "targetTable": "[dbo].[UP_AssignedResourceTypes]","targetEntity": "AssignedResourceType", "localKey": "Id",                  "foreignKey": "WorkflowInstance_Id" },
-      "Directory_FR_User":     { "targetTable": "[dbo].[UR_Resources]",           "targetEntity": "Resource",            "localKey": "Owner_Id",             "foreignKey": "Id" },
-      "Workflow_Directory_FR_User": { "targetTable": "[dbo].[UR_Resources]",      "targetEntity": "Resource",            "localKey": "Owner_Id",             "foreignKey": "Id" }
+      "Workflow":              { "targetTable": "[dbo].[UW_Workflows]",             "targetEntity": "Workflow"            },
+      "CurrentActivity":       { "targetTable": "[dbo].[UW_Activities]",            "targetEntity": "Activity"            },
+      "ActivityInstances":     { "targetTable": "[dbo].[UW_ActivityInstances]",     "targetEntity": "UserActivityInstance", "localKey": "Id", "foreignKey": "WorkflowInstance_Id" },
+      "AssignedSingleRoles":   { "targetTable": "[dbo].[UP_AssignedSingleRoles]",   "targetEntity": "AssignedSingleRole",   "localKey": "Id", "foreignKey": "WorkflowInstance_Id" },
+      "AssignedCompositeRoles":{ "targetTable": "[dbo].[UP_AssignedCompositeRoles]","targetEntity": "AssignedCompositeRole","localKey": "Id", "foreignKey": "WorkflowInstance_Id" },
+      "AssignedResourceTypes": { "targetTable": "[dbo].[UP_AssignedResourceTypes]", "targetEntity": "AssignedResourceType", "localKey": "Id", "foreignKey": "WorkflowInstance_Id" },
+      "Directory_FR_User":          { "targetTable": "[dbo].[UR_Resources]", "targetEntity": "Resource", "localKey": "Owner_Id" },
+      "Workflow_Directory_FR_User": { "targetTable": "[dbo].[UR_Resources]", "targetEntity": "Resource", "localKey": "Owner_Id" }
     },
 
     "Workflow": {
@@ -48,119 +48,113 @@
     },
 
     "SingleRole": {
-      "Policy": { "targetTable": "[dbo].[UP_Policies]", "targetEntity": "Policy", "localKey": "Policy_Id", "foreignKey": "Id" }
+      "Policy": { "targetTable": "[dbo].[UP_Policies]", "targetEntity": "Policy" }
     },
 
     "CompositeRole": {
-      "Policy": { "targetTable": "[dbo].[UP_Policies]", "targetEntity": "Policy", "localKey": "Policy_Id", "foreignKey": "Id" }
+      "Policy": { "targetTable": "[dbo].[UP_Policies]", "targetEntity": "Policy" }
     },
 
     "Policy": {
-      "SimulationPolicy":  { "targetTable": "[dbo].[UP_PolicySimulations]", "targetEntity": "SimulationPolicy", "localKey": "PolicySimulation_Id",  "foreignKey": "Id" },
-      "ProvisioningPolicy":{ "targetTable": "[dbo].[UP_Policies]",          "targetEntity": "Policy",           "localKey": "PolicyProvisioning_Id","foreignKey": "Id" }
+      "SimulationPolicy":  { "targetTable": "[dbo].[UP_PolicySimulations]", "targetEntity": "SimulationPolicy", "localKey": "PolicySimulation_Id"   },
+      "ProvisioningPolicy":{ "targetTable": "[dbo].[UP_Policies]",          "targetEntity": "Policy",           "localKey": "PolicyProvisioning_Id" }
     },
 
     "CompositeRoleRule": {
-      "Role":       { "targetTable": "[dbo].[UP_CompositeRoles]", "targetEntity": "CompositeRole", "localKey": "Role_Id",       "foreignKey": "Id" },
-      "Policy":     { "targetTable": "[dbo].[UP_Policies]",       "targetEntity": "Policy",        "localKey": "Policy_Id",     "foreignKey": "Id" },
-      "ParentRole": { "targetTable": "[dbo].[UP_CompositeRoles]", "targetEntity": "CompositeRole", "localKey": "ParentRole_Id", "foreignKey": "Id" },
-      "CreatedBy":  { "targetTable": "[dbo].[UR_Resources]",      "targetEntity": "Resource",      "localKey": "CreatedBy_Id",  "foreignKey": "Id" },
-      "ChangedBy":  { "targetTable": "[dbo].[UR_Resources]",      "targetEntity": "Resource",      "localKey": "ChangedBy_Id",  "foreignKey": "Id" }
+      "Role":       { "targetTable": "[dbo].[UP_CompositeRoles]", "targetEntity": "CompositeRole" },
+      "Policy":     { "targetTable": "[dbo].[UP_Policies]",       "targetEntity": "Policy"        },
+      "ParentRole": { "targetTable": "[dbo].[UP_CompositeRoles]", "targetEntity": "CompositeRole" },
+      "CreatedBy":  { "targetTable": "[dbo].[UR_Resources]",      "targetEntity": "Resource"      },
+      "ChangedBy":  { "targetTable": "[dbo].[UR_Resources]",      "targetEntity": "Resource"      }
     },
 
     "SingleRoleRule": {
-      "Role":   { "targetTable": "[dbo].[UP_SingleRoles]", "targetEntity": "SingleRole", "localKey": "Role_Id",   "foreignKey": "Id" },
-      "Policy": { "targetTable": "[dbo].[UP_Policies]",    "targetEntity": "Policy",     "localKey": "Policy_Id", "foreignKey": "Id" }
+      "Role":   { "targetTable": "[dbo].[UP_SingleRoles]", "targetEntity": "SingleRole" },
+      "Policy": { "targetTable": "[dbo].[UP_Policies]",    "targetEntity": "Policy"     }
     },
 
     "ResourceClassificationRule": {
-      "ResourceType": { "targetTable": "[dbo].[UP_ResourceTypes]", "targetEntity": "ResourceType", "localKey": "ResourceType_Id", "foreignKey": "Id" }
+      "ResourceType": { "targetTable": "[dbo].[UP_ResourceTypes]", "targetEntity": "ResourceType" }
     },
 
     "ResourceCorrelationRule": {
-      "SourceBinding":  { "targetTable": "[dbo].[UM_Bindings]",    "targetEntity": "Binding",      "localKey": "SourceBinding_Id",  "foreignKey": "Id" },
-      "TargetBinding":  { "targetTable": "[dbo].[UM_Bindings]",    "targetEntity": "Binding",      "localKey": "TargetBinding_Id",  "foreignKey": "Id" },
-      "ResourceType":   { "targetTable": "[dbo].[UP_ResourceTypes]","targetEntity": "ResourceType", "localKey": "ResourceType_Id",   "foreignKey": "Id" },
-      "Policy":         { "targetTable": "[dbo].[UP_Policies]",    "targetEntity": "Policy",       "localKey": "Policy_Id",         "foreignKey": "Id" }
+      "SourceBinding":  { "targetTable": "[dbo].[UM_Bindings]",     "targetEntity": "Binding"      },
+      "TargetBinding":  { "targetTable": "[dbo].[UM_Bindings]",     "targetEntity": "Binding"      },
+      "ResourceType":   { "targetTable": "[dbo].[UP_ResourceTypes]","targetEntity": "ResourceType" },
+      "Policy":         { "targetTable": "[dbo].[UP_Policies]",     "targetEntity": "Policy"       }
     },
 
     "ResourceNavigationRule": {
-      "Property":     { "targetTable": "[dbo].[UM_EntityProperties]", "targetEntity": "Property",     "localKey": "Property_Id",     "foreignKey": "Id" },
-      "Resource":     { "targetTable": "[dbo].[UR_Resources]",        "targetEntity": "Resource",     "localKey": "Resource_Id",     "foreignKey": "Id" },
-      "SingleRole":   { "targetTable": "[dbo].[UP_SingleRoles]",      "targetEntity": "SingleRole",   "localKey": "SingleRole_Id",   "foreignKey": "Id" },
-      "ResourceType": { "targetTable": "[dbo].[UP_ResourceTypes]",    "targetEntity": "ResourceType", "localKey": "ResourceType_Id", "foreignKey": "Id" },
-      "Policy":       { "targetTable": "[dbo].[UP_Policies]",         "targetEntity": "Policy",       "localKey": "Policy_Id",       "foreignKey": "Id" }
+      "Property":     { "targetTable": "[dbo].[UM_EntityProperties]", "targetEntity": "Property"     },
+      "Resource":     { "targetTable": "[dbo].[UR_Resources]",        "targetEntity": "Resource"     },
+      "SingleRole":   { "targetTable": "[dbo].[UP_SingleRoles]",      "targetEntity": "SingleRole"   },
+      "ResourceType": { "targetTable": "[dbo].[UP_ResourceTypes]",    "targetEntity": "ResourceType" },
+      "Policy":       { "targetTable": "[dbo].[UP_Policies]",         "targetEntity": "Policy"       }
     },
 
     "ResourceQueryRule": {
-      "Property":       { "targetTable": "[dbo].[UM_EntityProperties]", "targetEntity": "Property",     "localKey": "Property_Id",       "foreignKey": "Id" },
-      "ResourceType":   { "targetTable": "[dbo].[UP_ResourceTypes]",    "targetEntity": "ResourceType", "localKey": "ResourceType_Id",   "foreignKey": "Id" },
-      "SourceBinding":  { "targetTable": "[dbo].[UM_Bindings]",         "targetEntity": "Binding",      "localKey": "SourceBinding_Id",  "foreignKey": "Id" },
-      "TargetBinding":  { "targetTable": "[dbo].[UM_Bindings]",         "targetEntity": "Binding",      "localKey": "TargetBinding_Id",  "foreignKey": "Id" },
-      "Policy":         { "targetTable": "[dbo].[UP_Policies]",         "targetEntity": "Policy",       "localKey": "Policy_Id",         "foreignKey": "Id" }
+      "Property":      { "targetTable": "[dbo].[UM_EntityProperties]", "targetEntity": "Property"     },
+      "ResourceType":  { "targetTable": "[dbo].[UP_ResourceTypes]",    "targetEntity": "ResourceType" },
+      "SourceBinding": { "targetTable": "[dbo].[UM_Bindings]",         "targetEntity": "Binding"      },
+      "TargetBinding": { "targetTable": "[dbo].[UM_Bindings]",         "targetEntity": "Binding"      },
+      "Policy":        { "targetTable": "[dbo].[UP_Policies]",         "targetEntity": "Policy"       }
     },
 
     "ResourceTypeRule": {
-      "Role":       { "targetTable": "[dbo].[UP_ResourceTypes]", "targetEntity": "ResourceType", "localKey": "Role_Id",       "foreignKey": "Id" },
-      "SingleRole": { "targetTable": "[dbo].[UP_SingleRoles]",   "targetEntity": "SingleRole",   "localKey": "SingleRole_Id", "foreignKey": "Id" },
-      "Policy":     { "targetTable": "[dbo].[UP_Policies]",      "targetEntity": "Policy",       "localKey": "Policy_Id",     "foreignKey": "Id" }
+      "Role":       { "targetTable": "[dbo].[UP_ResourceTypes]", "targetEntity": "ResourceType" },
+      "SingleRole": { "targetTable": "[dbo].[UP_SingleRoles]",   "targetEntity": "SingleRole"   },
+      "Policy":     { "targetTable": "[dbo].[UP_Policies]",      "targetEntity": "Policy"       }
     },
 
     "AutomationRule": {
-      "CompositeRole": { "targetTable": "[dbo].[UP_CompositeRoles]", "targetEntity": "CompositeRole", "localKey": "CompositeRole_Id", "foreignKey": "Id" },
-      "SingleRole":    { "targetTable": "[dbo].[UP_SingleRoles]",    "targetEntity": "SingleRole",    "localKey": "SingleRole_Id",    "foreignKey": "Id" },
-      "ResourceType":  { "targetTable": "[dbo].[UP_ResourceTypes]",  "targetEntity": "ResourceType",  "localKey": "ResourceType_Id",  "foreignKey": "Id" },
-      "Category":      { "targetTable": "[dbo].[UP_Categories]",     "targetEntity": "Category",      "localKey": "Category_Id",      "foreignKey": "Id" },
-      "Policy":        { "targetTable": "[dbo].[UP_Policies]",       "targetEntity": "Policy",        "localKey": "Policy_Id",        "foreignKey": "Id" }
+      "CompositeRole": { "targetTable": "[dbo].[UP_CompositeRoles]", "targetEntity": "CompositeRole" },
+      "SingleRole":    { "targetTable": "[dbo].[UP_SingleRoles]",    "targetEntity": "SingleRole"    },
+      "ResourceType":  { "targetTable": "[dbo].[UP_ResourceTypes]",  "targetEntity": "ResourceType"  },
+      "Category":      { "targetTable": "[dbo].[UP_Categories]",     "targetEntity": "Category"      },
+      "Policy":        { "targetTable": "[dbo].[UP_Policies]",       "targetEntity": "Policy"        }
     },
 
     "RoleMapping": {
-      "ResourceType":      { "targetTable": "[dbo].[UP_ResourceTypes]",    "targetEntity": "ResourceType", "localKey": "ResourceType_Id",       "foreignKey": "Id" },
-      "Property":          { "targetTable": "[dbo].[UM_EntityProperties]", "targetEntity": "Property",     "localKey": "Property_Id",           "foreignKey": "Id" },
-      "IdentifierBinding": { "targetTable": "[dbo].[UM_Bindings]",         "targetEntity": "Binding",      "localKey": "IdentifierBinding_Id",  "foreignKey": "Id" },
-      "DisplayNameBinding":{ "targetTable": "[dbo].[UM_Bindings]",         "targetEntity": "Binding",      "localKey": "DisplayNameBinding_Id", "foreignKey": "Id" },
-      "Policy":            { "targetTable": "[dbo].[UP_Policies]",         "targetEntity": "Policy",       "localKey": "Policy_Id",             "foreignKey": "Id" }
+      "ResourceType":      { "targetTable": "[dbo].[UP_ResourceTypes]",    "targetEntity": "ResourceType" },
+      "Property":          { "targetTable": "[dbo].[UM_EntityProperties]", "targetEntity": "Property"     },
+      "IdentifierBinding": { "targetTable": "[dbo].[UM_Bindings]",         "targetEntity": "Binding"      },
+      "DisplayNameBinding":{ "targetTable": "[dbo].[UM_Bindings]",         "targetEntity": "Binding"      },
+      "Policy":            { "targetTable": "[dbo].[UP_Policies]",         "targetEntity": "Policy"       }
     },
 
     "ResourceType": {
-      "Category":               { "targetTable": "[dbo].[UP_Categories]",              "targetEntity": "Category",            "localKey": "Category_Id",               "foreignKey": "Id" },
-      "SecondaryCategories":    { "targetTable": "[dbo].[UP_ResourceTypesCategories]", "targetEntity": "ResourceTypesCategory","localKey": "Id",                        "foreignKey": "ResourceType_Id" },
-      "SourceEntityType":       { "targetTable": "[dbo].[UM_EntityTypes]",             "targetEntity": "EntityType",          "localKey": "SourceEntityType_Id",       "foreignKey": "Id" },
-      "TargetEntityType":       { "targetTable": "[dbo].[UM_EntityTypes]",             "targetEntity": "EntityType",          "localKey": "TargetEntityType_Id",       "foreignKey": "Id" },
-      "DependsOn":              { "targetTable": "[dbo].[UP_ResourceTypes]",           "targetEntity": "ResourceType",        "localKey": "DependsOn_Id",              "foreignKey": "Id" },
-      "DependsOnOwnerProperty": { "targetTable": "[dbo].[UM_EntityProperties]",        "targetEntity": "Property",            "localKey": "DependsOnOwnerProperty_Id", "foreignKey": "Id" },
-      "Policy":                 { "targetTable": "[dbo].[UP_Policies]",                "targetEntity": "Policy",              "localKey": "Policy_Id",                 "foreignKey": "Id" }
-    },
-
-    "Resource": {
-      "ResourceAssignedResourceTypes": { "targetTable": "[dbo].[UP_AssignedResourceTypes]", "targetEntity": "AssignedResourceType", "localKey": "Id", "foreignKey": "Resource_Id" },
-      "PresenceState": { "targetTable": "[dbo].[UR_Resources]", "targetEntity": "Resource", "localKey": "Op_PresenceState_Id", "foreignKey": "Id" },
-      "MainRecord":    { "targetTable": "[dbo].[UR_Resources]", "targetEntity": "Resource", "localKey": "Id",                  "foreignKey": "Id" }
+      "Category":               { "targetTable": "[dbo].[UP_Categories]",              "targetEntity": "Category"              },
+      "SecondaryCategories":    { "targetTable": "[dbo].[UP_ResourceTypesCategories]", "targetEntity": "ResourceTypesCategory", "localKey": "Id", "foreignKey": "ResourceType_Id" },
+      "SourceEntityType":       { "targetTable": "[dbo].[UM_EntityTypes]",             "targetEntity": "EntityType"            },
+      "TargetEntityType":       { "targetTable": "[dbo].[UM_EntityTypes]",             "targetEntity": "EntityType"            },
+      "DependsOn":              { "targetTable": "[dbo].[UP_ResourceTypes]",           "targetEntity": "ResourceType"          },
+      "DependsOnOwnerProperty": { "targetTable": "[dbo].[UM_EntityProperties]",        "targetEntity": "Property"              },
+      "Policy":                 { "targetTable": "[dbo].[UP_Policies]",                "targetEntity": "Policy"                }
     },
 
     "Job": {
-      "Agent":           { "targetTable": "[dbo].[UC_Agents]",       "targetEntity": "Agent",       "localKey": "Agent_Id",           "foreignKey": "Id" },
-      "LastJobInstance": { "targetTable": "[dbo].[UJ_JobInstances]", "targetEntity": "JobInstance", "localKey": "LastJobInstance_Id", "foreignKey": "Id" }
+      "Agent":           { "targetTable": "[dbo].[UC_Agents]",       "targetEntity": "Agent"       },
+      "LastJobInstance": { "targetTable": "[dbo].[UJ_JobInstances]", "targetEntity": "JobInstance" }
     },
 
     "JobInstance": {
-      "Job":  { "targetTable": "[dbo].[UJ_Jobs]",     "targetEntity": "Job",      "localKey": "Job_Id",  "foreignKey": "Id" },
-      "User": { "targetTable": "[dbo].[UR_Resources]","targetEntity": "Resource", "localKey": "User_Id", "foreignKey": "Id" }
+      "Job":  { "targetTable": "[dbo].[UJ_Jobs]",      "targetEntity": "Job"      },
+      "User": { "targetTable": "[dbo].[UR_Resources]", "targetEntity": "Resource" }
     },
 
     "Connector": {
-      "Agent":             { "targetTable": "[dbo].[UC_Agents]",           "targetEntity": "Agent",          "localKey": "Agent_Id",    "foreignKey": "Id" },
-      "Connections":       { "targetTable": "[dbo].[UC_Connections]",      "targetEntity": "Connection",     "localKey": "Id",          "foreignKey": "Connector_Id" },
-      "EntityTypeMappings":{ "targetTable": "[dbo].[UC_EntityTypeMappings]","targetEntity": "EntityTypeMapping","localKey": "Id",         "foreignKey": "Connector_Id" }
+      "Agent":             { "targetTable": "[dbo].[UC_Agents]",            "targetEntity": "Agent"             },
+      "Connections":       { "targetTable": "[dbo].[UC_Connections]",       "targetEntity": "Connection",       "localKey": "Id", "foreignKey": "Connector_Id" },
+      "EntityTypeMappings":{ "targetTable": "[dbo].[UC_EntityTypeMappings]","targetEntity": "EntityTypeMapping","localKey": "Id", "foreignKey": "Connector_Id" }
     },
 
     "Connection": {
-      "Package": { "targetTable": "[dbo].[UC_Packages]", "targetEntity": "Package", "localKey": "Package_Id", "foreignKey": "Id" }
+      "Package": { "targetTable": "[dbo].[UC_Packages]", "targetEntity": "Package" }
     },
 
     "EntityTypeMapping": {
-      "Connector":  { "targetTable": "[dbo].[UC_Connectors]",  "targetEntity": "Connector",  "localKey": "Connector_Id",  "foreignKey": "Id" },
-      "EntityType": { "targetTable": "[dbo].[UM_EntityTypes]", "targetEntity": "EntityType", "localKey": "EntityType_Id", "foreignKey": "Id" }
+      "Connector":  { "targetTable": "[dbo].[UC_Connectors]",  "targetEntity": "Connector"  },
+      "EntityType": { "targetTable": "[dbo].[UM_EntityTypes]", "targetEntity": "EntityType" }
     }
   }
 }
