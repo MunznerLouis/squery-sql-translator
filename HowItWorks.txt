@@ -1,0 +1,67 @@
+ SETUP (once per project)                    TRANSLATION (every call)
+ ========================                    ========================
+
+ Identity Manager                            SQuery URL
+ Admin Console                               "http://...?squery=join+Role+r+select+...
+      |                                       &QueryRootEntityType=AssignedSingleRole"
+      | Export XML                                       |
+      v                                                  v
+ entityTypes.xml                             +---------------------------+
+      |                                      | Convert-SQueryToSql       |
+      v                                      |  (SQuery-SQL-Translator   |
+ +--------------------+                      |       .psm1)              |
+ | Initialize-        |                      +---------------------------+
+ |   Workspace        |                        |                    |
+ | (WorkspaceInit-    |                        | URL parse          | Load configs
+ |    ializer.ps1)    |                        v                    v
+ +--------------------+              squery string         +----------------+
+      |                              + RootEntity          | ConfigLoader   |
+      | Parse XML                          |               |  (.ps1)        |
+      | Base32 encode                      v               +----------------+
+      | Write JSON                   +-----------+               |
+      v                              | Lexer     |          Reads & merges:
+ Configs/Custom/                     |  (.ps1)   |               |
+   resource-columns.json             +-----------+          +----+----------+
+                                           |                |               |
+                                      tokens[]         Configs/         Configs/
+                                           |           Default/         Custom/
+                                           v           (shipped)        (generated)
+                                     +-----------+          |               |
+                                     | Parser    |          +------+--------+
+                                     |  (.ps1)   |                 |
+                                     +-----------+          database-mapping.json
+                                           |                column-rules.json
+                                        AST                 operator.json
+                                           |                join-patterns.json
+                                           v                resource-columns.json (merged)
+                                     +-----------+                 |
+                                     | Validator |<----------------+
+                                     |  (.ps1)   |    whitelist check
+                                     +-----------+
+                                           |
+                                       valid AST
+                                           |
+                                           v
+                                     +---------------+
+                                     | Transformer   |<-------- join-patterns.json
+                                     |  (.ps1)       |          resource-columns.json
+                                     +---------------+          column-rules.json
+                                           |
+                                           | Builds SQL via
+                                           | SqlQueryBuilder
+                                           v
+                                     +------------------+
+                                     | SqlQueryBuilder  |
+                                     |  (in Transformer |
+                                     |     .ps1)        |
+                                     +------------------+
+                                           |
+                                           | .Build()
+                                           | InlineParameters()
+                                           v
+
+                                     SELECT asr.Id, asr.StartDate, r.DisplayName_L1
+                                     FROM [dbo].[UP_AssignedSingleRoles] asr
+                                     LEFT JOIN [dbo].[UP_SingleRoles] r ON asr.Role_Id = r.Id
+                                     WHERE asr.OwnerType = 2015
+                                     ORDER BY asr.Id DESC

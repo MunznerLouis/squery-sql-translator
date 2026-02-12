@@ -1,5 +1,10 @@
-# Import-ResourceEntityTypes.ps1
-# Parses Identity Manager EntityType XML and generates resource-columns.json.
+﻿# Import-ResourceEntityTypes.ps1
+# Standalone script for advanced usage. For the typical workflow, use the module cmdlets:
+#   Initialize-Workspace -XmlPath "path\to\export.xml"         (first-time setup wizard)
+#   Update-SQueryEntityTypes -XmlPath "path\to\export.xml"     (update/replace)
+#   Update-SQueryEntityTypes -XmlPath "path\to\export.xml" -Merge  (add to existing)
+#
+# This script writes directly to a specified -OutputPath (defaults to Configs\Default).
 #
 # Usage:
 #   .\Scripts\Import-ResourceEntityTypes.ps1 -XmlPath ".\.sample_data\entityTypes.txt" -OutputPath ".\Configs\Default\resource-columns.json"

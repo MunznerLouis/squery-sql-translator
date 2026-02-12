@@ -1,4 +1,4 @@
-Import-Module "$PSScriptRoot\..\Core\SQuery-SQL-Translator.psm1" -Force
+﻿Import-Module "$PSScriptRoot\..\Core\SQuery-SQL-Translator.psm1" -Force
 
 $pass = 0
 $fail = 0

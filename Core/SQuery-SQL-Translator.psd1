@@ -47,7 +47,9 @@
     FunctionsToExport = @(
         'Convert-SQueryToSql',
         'Test-SQueryConfiguration',
-        'Get-SQueryConfigPath'
+        'Get-SQueryConfigPath',
+        'Initialize-Workspace',
+        'Update-SQueryEntityTypes'
     )
 
     # Cmdlets to export from this module

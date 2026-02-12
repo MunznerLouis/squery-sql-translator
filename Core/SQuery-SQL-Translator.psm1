@@ -9,6 +9,7 @@ Add-Type -AssemblyName System.Web
 
 # Load shared components
 . "$ModuleRoot\Shared\ConfigLoader.ps1"
+. "$ModuleRoot\Shared\WorkspaceInitializer.ps1"
 
 # Load SQuery to SQL components
 . "$ModuleRoot\SqueryToSql\Lexer.ps1"
@@ -309,5 +310,7 @@ function Get-SQueryConfigPath {
 Export-ModuleMember -Function @(
     'Convert-SQueryToSql',
     'Test-SQueryConfiguration',
-    'Get-SQueryConfigPath'
+    'Get-SQueryConfigPath',
+    'Initialize-Workspace',
+    'Update-SQueryEntityTypes'
 )

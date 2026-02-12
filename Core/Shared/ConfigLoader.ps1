@@ -59,6 +59,21 @@ class ConfigLoader {
                 $this.ResourceColumns = @{}
             }
 
+            # Custom resource columns overlay (Configs/Custom/resource-columns.json)
+            $customRcPath = Join-Path (Split-Path $this.ConfigPath -Parent) "Custom\resource-columns.json"
+            if (Test-Path $customRcPath) {
+                $customRcJson = Get-Content $customRcPath -Raw | ConvertFrom-Json
+                $customRc = $this.ConvertToHashtable($customRcJson)
+                if ($customRc.ContainsKey('entityTypes')) {
+                    if (-not $this.ResourceColumns.ContainsKey('entityTypes')) {
+                        $this.ResourceColumns['entityTypes'] = @{}
+                    }
+                    foreach ($enName in $customRc.entityTypes.Keys) {
+                        $this.ResourceColumns.entityTypes[$enName] = $customRc.entityTypes[$enName]
+                    }
+                }
+            }
+
             # Validate configurations
             $this.ValidateConfigurations()
 

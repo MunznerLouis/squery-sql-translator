@@ -1,4 +1,4 @@
-# test_resource_entity_types.ps1
+﻿# test_resource_entity_types.ps1
 # Tests for Resource EntityType root entity support (Phase 2)
 
 Import-Module "$PSScriptRoot\..\Core\SQuery-SQL-Translator.psm1" -Force
