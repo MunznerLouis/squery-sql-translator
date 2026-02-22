@@ -1,0 +1,217 @@
+{
+  "version": "1.0",
+  "description": "Manual overrides applied on top of db-schema.json. Entity aliases, column renames, navigation property overrides, and Resource EntityType mappings.",
+
+  "entityAliases": {
+    "AssignedResourceType":        { "tableName": "UP_AssignedResourceTypes",          "alias": "art"  },
+    "AssignedSingleRole":          { "tableName": "UP_AssignedSingleRoles",            "alias": "asr"  },
+    "AssignedCompositeRole":       { "tableName": "UP_AssignedCompositeRoles",         "alias": "acr"  },
+    "AutomationRule":              { "tableName": "UP_AutomationRules",                "alias": "ar"   },
+    "Category":                    { "tableName": "UP_Categories",                     "alias": "cat"  },
+    "CompositeRole":               { "tableName": "UP_CompositeRoles",                 "alias": "cr"   },
+    "CompositeRoleRule":           { "tableName": "UP_CompositeRoleRules",             "alias": "crr"  },
+    "Policy":                      { "tableName": "UP_Policies",                       "alias": "pol"  },
+    "ResourceClassificationRule":  { "tableName": "UP_ResourceClassificationRules",    "alias": "rcl"  },
+    "ResourceCorrelationRule":     { "tableName": "UP_ResourceCorrelationRules",       "alias": "rcr"  },
+    "ResourceNavigationRule":      { "tableName": "UP_ResourceNavigationRules",        "alias": "rnr"  },
+    "ResourceQueryRule":           { "tableName": "UP_ResourceQueryRules",             "alias": "rqr"  },
+    "ResourceType":                { "tableName": "UP_ResourceTypes",                  "alias": "rt"   },
+    "ResourceTypeRule":            { "tableName": "UP_ResourceTypeRules",              "alias": "rtr"  },
+    "RiskRule":                    { "tableName": "UP_RiskRules",                      "alias": "rr"   },
+    "RoleMapping":                 { "tableName": "UP_RoleMappings",                   "alias": "rm"   },
+    "RoleMappingRule":             { "tableName": "UP_RoleMappingRules",               "alias": "rmr"  },
+    "SingleRole":                  { "tableName": "UP_SingleRoles",                    "alias": "sr"   },
+    "SingleRoleRule":              { "tableName": "UP_SingleRoleRules",                "alias": "srr"  },
+    "SimulationPolicy":            { "tableName": "UP_PolicySimulations",              "alias": "sp"   },
+    "WorkflowState":               { "tableName": "UP_WorkflowStates",                "alias": "ws"   },
+    "Resource":                    { "tableName": "UR_Resources",                      "alias": "r"    },
+    "Activity":                    { "tableName": "UW_Activities",                     "alias": "act"  },
+    "UserActivityInstance":        { "tableName": "UW_ActivityInstances",              "alias": "uai"  },
+    "PointCut":                    { "tableName": "UW_PointCuts",                      "alias": "pct"  },
+    "Recipient":                   { "tableName": "UW_Recipients",                     "alias": "rec"  },
+    "Workflow":                    { "tableName": "UW_Workflows",                      "alias": "wf"   },
+    "WorkflowInstance":            { "tableName": "UW_WorkflowInstances",              "alias": "wi"   },
+    "Agent":                       { "tableName": "UC_Agents",                         "alias": "ag"   },
+    "Connector":                   { "tableName": "UC_Connectors",                     "alias": "con"  },
+    "Connection":                  { "tableName": "UC_Connections",                    "alias": "conn" },
+    "Package":                     { "tableName": "UC_Packages",                       "alias": "pkg"  },
+    "EntityTypeMapping":           { "tableName": "UC_EntityTypeMappings",             "alias": "etm"  },
+    "Job":                         { "tableName": "UJ_Jobs",                           "alias": "job"  },
+    "JobInstance":                 { "tableName": "UJ_JobInstances",                   "alias": "ji"   },
+    "JobStep":                     { "tableName": "UJ_JobSteps",                       "alias": "js"   },
+    "Property":                    { "tableName": "UM_EntityProperties",               "alias": "prop" },
+    "EntityType":                  { "tableName": "UM_EntityTypes",                    "alias": "et"   },
+    "Binding":                     { "tableName": "UM_Bindings",                       "alias": "bnd"  },
+    "Context":                     { "tableName": "UP_Contexts",                       "alias": "ctx"  },
+    "Universe":                    { "tableName": "UU_Universes",                      "alias": "univ" },
+    "AccessCertificationCampaign": { "tableName": "US_AccessCertificationCampaigns",   "alias": "acc"  }
+  },
+
+  "globalColumnRenames": {
+    "DisplayName":         "DisplayName_L1",
+    "FullName":            "FullName_L1",
+    "InternalDisplayName": "InternalDisplayName_L1"
+  },
+
+  "entityColumnOverrides": {
+  },
+
+  "navigationPropertyOverrides": {
+
+    "AssignedSingleRole": {
+      "Role":              { "targetTable": "UP_SingleRoles",       "targetEntity": "SingleRole"       },
+      "WorkflowInstance":  { "targetTable": "UW_WorkflowInstances", "targetEntity": "WorkflowInstance" },
+      "Owner":             { "targetTable": "UR_Resources",         "targetEntity": "Resource"         },
+      "ParametersContext": { "targetTable": "UP_Contexts",          "targetEntity": "Context"          }
+    },
+
+    "AssignedCompositeRole": {
+      "Role":              { "targetTable": "UP_CompositeRoles",    "targetEntity": "CompositeRole"    },
+      "WorkflowInstance":  { "targetTable": "UW_WorkflowInstances", "targetEntity": "WorkflowInstance" },
+      "Owner":             { "targetTable": "UR_Resources",         "targetEntity": "Resource"         },
+      "ParametersContext": { "targetTable": "UP_Contexts",          "targetEntity": "Context"          }
+    },
+
+    "AssignedResourceType": {
+      "Role":              { "targetTable": "UP_ResourceTypes",     "targetEntity": "ResourceType"     },
+      "WorkflowInstance":  { "targetTable": "UW_WorkflowInstances", "targetEntity": "WorkflowInstance" },
+      "Owner":             { "targetTable": "UR_Resources",         "targetEntity": "Resource"         },
+      "ParametersContext": { "targetTable": "UP_Contexts",          "targetEntity": "Context"          }
+    },
+
+    "UserActivityInstance": {
+      "Activity":          { "targetTable": "UW_Activities",        "targetEntity": "Activity"         },
+      "WorkflowInstance":  { "targetTable": "UW_WorkflowInstances", "targetEntity": "WorkflowInstance" },
+      "AssignedTo":        { "targetTable": "UR_Resources",         "targetEntity": "Resource"         },
+      "Performer":         { "targetTable": "UR_Resources",         "targetEntity": "Resource"         }
+    },
+
+    "WorkflowInstance": {
+      "Workflow":               { "targetTable": "UW_Workflows",              "targetEntity": "Workflow"             },
+      "CurrentActivity":        { "targetTable": "UW_Activities",             "targetEntity": "Activity"             },
+      "ActivityInstances":      { "targetTable": "UW_ActivityInstances",      "targetEntity": "UserActivityInstance", "localKey": "Id", "foreignKey": "WorkflowInstance_Id" },
+      "AssignedSingleRoles":    { "targetTable": "UP_AssignedSingleRoles",    "targetEntity": "AssignedSingleRole",   "localKey": "Id", "foreignKey": "WorkflowInstance_Id" },
+      "AssignedCompositeRoles": { "targetTable": "UP_AssignedCompositeRoles", "targetEntity": "AssignedCompositeRole", "localKey": "Id", "foreignKey": "WorkflowInstance_Id" },
+      "AssignedResourceTypes":  { "targetTable": "UP_AssignedResourceTypes",  "targetEntity": "AssignedResourceType", "localKey": "Id", "foreignKey": "WorkflowInstance_Id" },
+      "Directory_FR_User":               { "targetTable": "UR_Resources", "targetEntity": "Resource", "localKey": "Owner_Id" },
+      "Workflow_Directory_FR_User":      { "targetTable": "UR_Resources", "targetEntity": "Resource", "localKey": "Owner_Id" }
+    },
+
+    "Workflow": {
+      "Activities": { "targetTable": "UW_Activities", "targetEntity": "Activity", "localKey": "Id", "foreignKey": "Workflow_Id" }
+    },
+
+    "SingleRole": {
+      "Policy": { "targetTable": "UP_Policies", "targetEntity": "Policy" }
+    },
+
+    "CompositeRole": {
+      "Policy": { "targetTable": "UP_Policies", "targetEntity": "Policy" }
+    },
+
+    "Policy": {
+      "SimulationPolicy":   { "targetTable": "UP_PolicySimulations", "targetEntity": "SimulationPolicy", "localKey": "PolicySimulation_Id"   },
+      "ProvisioningPolicy": { "targetTable": "UP_Policies",         "targetEntity": "Policy",            "localKey": "PolicyProvisioning_Id" }
+    },
+
+    "CompositeRoleRule": {
+      "Role":       { "targetTable": "UP_CompositeRoles", "targetEntity": "CompositeRole" },
+      "Policy":     { "targetTable": "UP_Policies",       "targetEntity": "Policy"        },
+      "ParentRole": { "targetTable": "UP_CompositeRoles", "targetEntity": "CompositeRole" },
+      "CreatedBy":  { "targetTable": "UR_Resources",      "targetEntity": "Resource"      },
+      "ChangedBy":  { "targetTable": "UR_Resources",      "targetEntity": "Resource"      }
+    },
+
+    "SingleRoleRule": {
+      "Role":   { "targetTable": "UP_SingleRoles", "targetEntity": "SingleRole" },
+      "Policy": { "targetTable": "UP_Policies",    "targetEntity": "Policy"     }
+    },
+
+    "ResourceClassificationRule": {
+      "ResourceType": { "targetTable": "UP_ResourceTypes", "targetEntity": "ResourceType" }
+    },
+
+    "ResourceCorrelationRule": {
+      "SourceBinding": { "targetTable": "UM_Bindings",      "targetEntity": "Binding"      },
+      "TargetBinding": { "targetTable": "UM_Bindings",      "targetEntity": "Binding"      },
+      "ResourceType":  { "targetTable": "UP_ResourceTypes", "targetEntity": "ResourceType" },
+      "Policy":        { "targetTable": "UP_Policies",      "targetEntity": "Policy"       }
+    },
+
+    "ResourceNavigationRule": {
+      "Property":     { "targetTable": "UM_EntityProperties", "targetEntity": "Property"     },
+      "Resource":     { "targetTable": "UR_Resources",        "targetEntity": "Resource"     },
+      "SingleRole":   { "targetTable": "UP_SingleRoles",      "targetEntity": "SingleRole"   },
+      "ResourceType": { "targetTable": "UP_ResourceTypes",    "targetEntity": "ResourceType" },
+      "Policy":       { "targetTable": "UP_Policies",         "targetEntity": "Policy"       }
+    },
+
+    "ResourceQueryRule": {
+      "Property":      { "targetTable": "UM_EntityProperties", "targetEntity": "Property"     },
+      "ResourceType":  { "targetTable": "UP_ResourceTypes",    "targetEntity": "ResourceType" },
+      "SourceBinding": { "targetTable": "UM_Bindings",         "targetEntity": "Binding"      },
+      "TargetBinding": { "targetTable": "UM_Bindings",         "targetEntity": "Binding"      },
+      "Policy":        { "targetTable": "UP_Policies",         "targetEntity": "Policy"       }
+    },
+
+    "ResourceTypeRule": {
+      "Role":       { "targetTable": "UP_ResourceTypes", "targetEntity": "ResourceType" },
+      "SingleRole": { "targetTable": "UP_SingleRoles",   "targetEntity": "SingleRole"   },
+      "Policy":     { "targetTable": "UP_Policies",      "targetEntity": "Policy"       }
+    },
+
+    "AutomationRule": {
+      "CompositeRole": { "targetTable": "UP_CompositeRoles", "targetEntity": "CompositeRole" },
+      "SingleRole":    { "targetTable": "UP_SingleRoles",    "targetEntity": "SingleRole"    },
+      "ResourceType":  { "targetTable": "UP_ResourceTypes",  "targetEntity": "ResourceType"  },
+      "Category":      { "targetTable": "UP_Categories",     "targetEntity": "Category"      },
+      "Policy":        { "targetTable": "UP_Policies",       "targetEntity": "Policy"        }
+    },
+
+    "RoleMapping": {
+      "ResourceType":       { "targetTable": "UP_ResourceTypes",    "targetEntity": "ResourceType" },
+      "Property":           { "targetTable": "UM_EntityProperties", "targetEntity": "Property"     },
+      "IdentifierBinding":  { "targetTable": "UM_Bindings",         "targetEntity": "Binding"      },
+      "DisplayNameBinding": { "targetTable": "UM_Bindings",         "targetEntity": "Binding"      },
+      "Policy":             { "targetTable": "UP_Policies",         "targetEntity": "Policy"       }
+    },
+
+    "ResourceType": {
+      "Category":               { "targetTable": "UP_Categories",              "targetEntity": "Category"   },
+      "SecondaryCategories":    { "targetTable": "UP_ResourceTypesCategories", "targetEntity": "ResourceTypesCategory", "localKey": "Id", "foreignKey": "ResourceType_Id" },
+      "SourceEntityType":       { "targetTable": "UM_EntityTypes",             "targetEntity": "EntityType" },
+      "TargetEntityType":       { "targetTable": "UM_EntityTypes",             "targetEntity": "EntityType" },
+      "DependsOn":              { "targetTable": "UP_ResourceTypes",           "targetEntity": "ResourceType" },
+      "DependsOnOwnerProperty": { "targetTable": "UM_EntityProperties",        "targetEntity": "Property"   },
+      "Policy":                 { "targetTable": "UP_Policies",                "targetEntity": "Policy"     }
+    },
+
+    "Job": {
+      "Agent":           { "targetTable": "UC_Agents",       "targetEntity": "Agent"       },
+      "LastJobInstance": { "targetTable": "UJ_JobInstances", "targetEntity": "JobInstance" }
+    },
+
+    "JobInstance": {
+      "Job":  { "targetTable": "UJ_Jobs",      "targetEntity": "Job"      },
+      "User": { "targetTable": "UR_Resources", "targetEntity": "Resource" }
+    },
+
+    "Connector": {
+      "Agent":              { "targetTable": "UC_Agents",             "targetEntity": "Agent"             },
+      "Connections":        { "targetTable": "UC_Connections",        "targetEntity": "Connection",        "localKey": "Id", "foreignKey": "Connector_Id" },
+      "EntityTypeMappings": { "targetTable": "UC_EntityTypeMappings", "targetEntity": "EntityTypeMapping", "localKey": "Id", "foreignKey": "Connector_Id" }
+    },
+
+    "Connection": {
+      "Package": { "targetTable": "UC_Packages", "targetEntity": "Package" }
+    },
+
+    "EntityTypeMapping": {
+      "Connector":  { "targetTable": "UC_Connectors",  "targetEntity": "Connector"  },
+      "EntityType": { "targetTable": "UM_EntityTypes",  "targetEntity": "EntityType" }
+    }
+  },
+
+  "resourceEntityTypes": {
+  }
+}

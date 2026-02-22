@@ -184,3 +184,8 @@ ORDER BY tp.name, cp.name
 
 On a indiqué qu'il y avait que Resources en custom, mais il y a aussi la table Dimensions
 
+TODO :
+    lancer les commandes dans export-db-schema.SQL
+
+    lancer import-DBSchema.ps1 : 
+    .\Scripts\Import-DbSchema.ps1 -ColumnsCsv ".\path\to\columns.csv" -ForeignKeysCsv ".\path\to\fk.csv" -PrimaryKeysCsv ".\path\to\pk.csv"
