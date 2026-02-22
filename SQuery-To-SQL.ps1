@@ -2,6 +2,9 @@
 # Interactive launcher for SQuery-SQL-Translator.
 # Provides a menu to translate SQuery URLs or configure Resource EntityTypes.
 
+[CmdletBinding()]
+param()
+
 $ErrorActionPreference = 'Stop'
 
 # Import the module
@@ -47,7 +50,7 @@ function Invoke-TranslateLoop {
         }
 
         try {
-            $result = Convert-SQueryToSql -Url $url -WarningVariable wv 3>$null
+            $result = Convert-SQueryToSql -Url $url -Verbose:($VerbosePreference -eq 'Continue') -WarningVariable wv 3>$null
 
             Write-Host ''
             if ($wv) {
