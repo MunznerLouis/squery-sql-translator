@@ -64,13 +64,6 @@ function Invoke-TranslateLoop {
             }
             Write-Host ''
 
-            if ($result.Parameters -and $result.Parameters.Count -gt 0) {
-                Write-Host '  --- Parameters ---' -ForegroundColor Cyan
-                foreach ($p in $result.Parameters.GetEnumerator()) {
-                    Write-Host "    @$($p.Key) = $($p.Value)" -ForegroundColor Gray
-                }
-                Write-Host ''
-            }
         } catch {
             Write-Host ''
             Write-Host "  ERROR: $($_.Exception.Message)" -ForegroundColor Red
