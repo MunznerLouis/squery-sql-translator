@@ -2,21 +2,21 @@
 # Loads and validates configuration files for SQuery-SQL-Translator.
 #
 # Configuration sources (in Configs/Default/):
-#   - db-schema.json  (optional) — auto-generated table/column/FK schema
-#   - overrides.json  (required) — entity aliases, column renames, nav props, resource entity types
-#   - operator.json   (required) — SQuery operator → SQL mapping
+#   - db-schema.json  (required) — entityAliases (edit manually) + tables/columns/FKs (auto-generated)
+#   - overrides.json  (required) — column renames, nav prop overrides, resource entity types
+#   - operator.json   (required) — SQuery operator -> SQL mapping
 #
 # Custom overlay:
 #   - Configs/Custom/resource-columns.json — merged into resourceEntityTypes
 
 class ConfigLoader {
     # Internal data stores
-    [hashtable]$DbSchema           # from db-schema.json (may be empty if file absent)
+    [hashtable]$DbSchema           # from db-schema.json (entityAliases + tables)
     [hashtable]$Overrides          # from overrides.json
     [hashtable]$Operators          # from operator.json (unchanged)
 
     # Derived / backward-compat properties
-    [hashtable]$DatabaseMapping    # built from Overrides.entityAliases + DbSchema columns
+    [hashtable]$DatabaseMapping    # built from DbSchema.entityAliases + DbSchema.tables columns
     [hashtable]$ResourceColumns    # built from Overrides.resourceEntityTypes + Custom overlay
 
     # Reverse lookup: raw table name → entity name (built at load time)
@@ -51,20 +51,19 @@ class ConfigLoader {
             $operatorsJson = Get-Content $operatorsPath -Raw | ConvertFrom-Json
             $this.Operators = $this.ConvertToHashtable($operatorsJson)
 
-            # ---- db-schema.json (optional) --------------------------------
+            # ---- db-schema.json (required — holds entityAliases + tables) ----
             $dbSchemaPath = Join-Path $this.ConfigPath "db-schema.json"
-            if (Test-Path $dbSchemaPath) {
-                $dbSchemaJson = Get-Content $dbSchemaPath -Raw | ConvertFrom-Json
-                $this.DbSchema = $this.ConvertToHashtable($dbSchemaJson)
-            } else {
-                $this.DbSchema = @{ tables = @{} }
+            if (-not (Test-Path $dbSchemaPath)) {
+                throw "db-schema.json not found at: $dbSchemaPath"
             }
+            $dbSchemaJson = Get-Content $dbSchemaPath -Raw | ConvertFrom-Json
+            $this.DbSchema = $this.ConvertToHashtable($dbSchemaJson)
 
-            # ---- Build reverse lookup: tableName → entityName -------------
+            # ---- Build reverse lookup: tableName -> entityName -------------
             $this.TableToEntity = @{}
-            if ($this.Overrides.ContainsKey('entityAliases')) {
-                foreach ($entityName in $this.Overrides.entityAliases.Keys) {
-                    $tbl = $this.Overrides.entityAliases[$entityName].tableName
+            if ($this.DbSchema.ContainsKey('entityAliases')) {
+                foreach ($entityName in $this.DbSchema.entityAliases.Keys) {
+                    $tbl = $this.DbSchema.entityAliases[$entityName].tableName
                     $this.TableToEntity[$tbl] = $entityName
                 }
             }
@@ -83,15 +82,14 @@ class ConfigLoader {
         }
     }
 
-    # Build $this.DatabaseMapping from overrides.entityAliases + db-schema columns.
-    # Structure matches the old database-mapping.json format for backward compatibility.
+    # Build $this.DatabaseMapping from db-schema.entityAliases + db-schema.tables columns.
     hidden [void] BuildDatabaseMapping() {
         $this.DatabaseMapping = @{ tables = @{} }
 
-        if (-not $this.Overrides.ContainsKey('entityAliases')) { return }
+        if (-not $this.DbSchema.ContainsKey('entityAliases')) { return }
 
-        foreach ($entityName in $this.Overrides.entityAliases.Keys) {
-            $aliasInfo = $this.Overrides.entityAliases[$entityName]
+        foreach ($entityName in $this.DbSchema.entityAliases.Keys) {
+            $aliasInfo = $this.DbSchema.entityAliases[$entityName]
             $rawTable  = $aliasInfo.tableName  # e.g. "UP_AssignedSingleRoles"
 
             # Determine allowedFields from db-schema (real column list) or default to ["*"]
@@ -140,9 +138,9 @@ class ConfigLoader {
     # ======================================================================
 
     [void] ValidateConfigurations() {
-        # Validate overrides has required keys
-        if (-not $this.Overrides.ContainsKey('entityAliases')) {
-            throw "overrides.json must contain 'entityAliases' key"
+        # Validate db-schema has entityAliases
+        if (-not $this.DbSchema.ContainsKey('entityAliases')) {
+            throw "db-schema.json must contain 'entityAliases' key"
         }
 
         if (-not $this.Operators.ContainsKey('operators')) {
@@ -150,13 +148,13 @@ class ConfigLoader {
         }
 
         # Validate each entity alias has required properties
-        foreach ($entityName in $this.Overrides.entityAliases.Keys) {
-            $entity = $this.Overrides.entityAliases[$entityName]
+        foreach ($entityName in $this.DbSchema.entityAliases.Keys) {
+            $entity = $this.DbSchema.entityAliases[$entityName]
             if (-not $entity.ContainsKey('tableName')) {
-                throw "Entity '$entityName' in overrides.json entityAliases must have 'tableName' property"
+                throw "Entity '$entityName' in db-schema.json entityAliases must have 'tableName' property"
             }
             if (-not $entity.ContainsKey('alias')) {
-                throw "Entity '$entityName' in overrides.json entityAliases must have 'alias' property"
+                throw "Entity '$entityName' in db-schema.json entityAliases must have 'alias' property"
             }
         }
 
@@ -319,11 +317,11 @@ class ConfigLoader {
     # Auto-deduce nav prop from db-schema.json foreign keys.
     # Looks for column "{navPropName}_Id" with a declared FK in the entity's table.
     hidden [hashtable] GetNavPropFromDbSchema([string]$entityName, [string]$navPropName) {
-        if ($this.DbSchema.tables.Count -eq 0) { return $null }
+        if (-not $this.DbSchema.ContainsKey('tables') -or $this.DbSchema.tables.Count -eq 0) { return $null }
 
-        # Resolve entity → raw table name
-        if (-not $this.Overrides.entityAliases.ContainsKey($entityName)) { return $null }
-        $rawTable = $this.Overrides.entityAliases[$entityName].tableName
+        # Resolve entity -> raw table name (from db-schema.entityAliases)
+        if (-not $this.DbSchema.entityAliases.ContainsKey($entityName)) { return $null }
+        $rawTable = $this.DbSchema.entityAliases[$entityName].tableName
 
         if (-not $this.DbSchema.tables.ContainsKey($rawTable)) { return $null }
         $tableSchema = $this.DbSchema.tables[$rawTable]
