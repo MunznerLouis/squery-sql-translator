@@ -22,15 +22,21 @@ class SQueryValidator {
     # Alias -> entity name mapping built during validation
     hidden [hashtable]$AliasToEntity
 
+    # Aliases with unresolved nav props (skip field validation to avoid noise)
+    hidden [System.Collections.Generic.HashSet[string]]$UnresolvedAliases
+
     # Maximum WHERE nesting depth before warning
     hidden static [int]$MaxWhereDepth = 10
 
     SQueryValidator([object]$ast, [object]$config) {
-        $this.AST           = $ast
-        $this.Config        = $config
-        $this.Errors        = [System.Collections.ArrayList]::new()
-        $this.Warnings      = [System.Collections.ArrayList]::new()
-        $this.AliasToEntity = @{}
+        $this.AST              = $ast
+        $this.Config           = $config
+        $this.Errors           = [System.Collections.ArrayList]::new()
+        $this.Warnings         = [System.Collections.ArrayList]::new()
+        $this.AliasToEntity    = @{}
+        $this.UnresolvedAliases = [System.Collections.Generic.HashSet[string]]::new(
+            [System.StringComparer]::OrdinalIgnoreCase
+        )
     }
 
     [bool] Validate() {
@@ -42,7 +48,7 @@ class SQueryValidator {
             $rootAlias = $tableMapping.alias
             $this.AliasToEntity[$rootAlias] = $this.AST.RootEntity
         } catch {
-            $null = $this.Errors.Add("Root entity '$($this.AST.RootEntity)' not found in database-mapping.json")
+            $null = $this.Errors.Add("Root entity '$($this.AST.RootEntity)' not found in correlation.json entityToTable")
             # Can't continue most checks without a valid root entity
             return $false
         }
@@ -127,7 +133,8 @@ class SQueryValidator {
             # Check nav prop in config
             $navProp = $this.Config.GetNavProp($parentEntity, $navPropName)
             if ($null -eq $navProp) {
-                $null = $this.Warnings.Add("JOIN '$alias': navigation property '$navPropName' is not defined for entity '$parentEntity' in join-patterns.json. The generated JOIN may be incorrect.")
+                $null = $this.Warnings.Add("JOIN '$alias': navigation property '$navPropName' is not defined for entity '$parentEntity'. The generated JOIN may be incorrect.")
+                $null = $this.UnresolvedAliases.Add($alias)
             }
 
             # Track alias -> target entity for downstream checks
@@ -227,10 +234,13 @@ class SQueryValidator {
             return
         }
 
+        # Skip field validation for aliases with unresolved nav props (already warned)
+        if ($this.UnresolvedAliases.Contains($alias)) { return }
+
         # -- 8. Field must be allowed (only when allowedFields is not ["*"]) ---
         $entity = $this.AliasToEntity[$alias]
         if (-not $this.Config.IsFieldAllowed($entity, $colName)) {
-            $null = $this.Warnings.Add("${clause}: field '$colName' may not exist on entity '$entity'. Check database-mapping.json allowedFields.")
+            $null = $this.Warnings.Add("${clause}: field '$colName' may not exist on entity '$entity'. Check squery-schema.json.")
         }
     }
 

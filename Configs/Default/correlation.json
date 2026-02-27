@@ -1,6 +1,50 @@
 {
-  "version": "1.0",
-  "description": "Manual overrides applied on top of db-schema.json. Column renames, navigation property overrides, and Resource EntityType mappings. Entity aliases (tableName + alias) have moved to db-schema.json.",
+  "description": "Manual bridge between SQuery entities and SQL tables. entityToTable + column renames + nav prop fixes.",
+
+  "entityToTable": {
+    "AccessCertificationCampaign": "US_AccessCertificationCampaigns",
+    "Activity": "UW_Activities",
+    "Agent": "UC_Agents",
+    "AssignedCompositeRole": "UP_AssignedCompositeRoles",
+    "AssignedResourceType": "UP_AssignedResourceTypes",
+    "AssignedSingleRole": "UP_AssignedSingleRoles",
+    "AutomationRule": "UP_AutomationRules",
+    "Binding": "UM_Bindings",
+    "Category": "UP_Categories",
+    "CompositeRole": "UP_CompositeRoles",
+    "CompositeRoleRule": "UP_CompositeRoleRules",
+    "Connection": "UC_Connections",
+    "Connector": "UC_Connectors",
+    "Context": "UP_Contexts",
+    "EntityType": "UM_EntityTypes",
+    "EntityTypeMapping": "UC_EntityTypeMappings",
+    "Job": "UJ_Jobs",
+    "JobInstance": "UJ_JobInstances",
+    "JobStep": "UJ_JobSteps",
+    "Package": "UC_Packages",
+    "PointCut": "UW_PointCuts",
+    "Policy": "UP_Policies",
+    "Property": "UM_EntityProperties",
+    "Recipient": "UW_Recipients",
+    "Resource": "UR_Resources",
+    "ResourceClassificationRule": "UP_ResourceClassificationRules",
+    "ResourceCorrelationRule": "UP_ResourceCorrelationRules",
+    "ResourceNavigationRule": "UP_ResourceNavigationRules",
+    "ResourceQueryRule": "UP_ResourceQueryRules",
+    "ResourceType": "UP_ResourceTypes",
+    "ResourceTypeRule": "UP_ResourceTypeRules",
+    "ResourceTypesCategory": "UP_ResourceTypesCategories",
+    "RiskRule": "UP_RiskRules",
+    "RoleMapping": "UP_RoleMappings",
+    "RoleMappingRule": "UP_RoleMappingRules",
+    "SimulationPolicy": "UP_PolicySimulations",
+    "SingleRole": "UP_SingleRoles",
+    "SingleRoleRule": "UP_SingleRoleRules",
+    "Universe": "UU_Universes",
+    "UserActivityInstance": "UW_ActivityInstances",
+    "Workflow": "UW_Workflows",
+    "WorkflowInstance": "UW_WorkflowInstances"
+  },
 
   "globalColumnRenames": {
     "Description":         "Description_L1",
@@ -23,8 +67,9 @@
     },
 
     "AssignedResourceType": {
-      "Role":  { "targetTable": "UP_ResourceTypes", "targetEntity": "ResourceType" },
-      "Owner": { "targetTable": "UR_Resources",     "targetEntity": "Resource"     }
+      "Role":     { "targetTable": "UP_ResourceTypes", "targetEntity": "ResourceType" },
+      "Owner":    { "targetTable": "UR_Resources",     "targetEntity": "Resource"     },
+      "Resource": { "targetTable": "UR_Resources",     "targetEntity": "Resource"     }
     },
 
     "UserActivityInstance": {
@@ -83,6 +128,18 @@
     "EntityTypeMapping": {
       "EntityType": { "targetTable": "UM_EntityTypes", "targetEntity": "EntityType" }
     }
+  },
+
+  "resourceNavigationProperties": {
+    "AssignedSingleRoles":            { "targetTable": "UP_AssignedSingleRoles",    "targetEntity": "AssignedSingleRole",    "localKey": "Id", "foreignKey": "Owner_Id" },
+    "AssignedCompositeRoles":         { "targetTable": "UP_AssignedCompositeRoles", "targetEntity": "AssignedCompositeRole", "localKey": "Id", "foreignKey": "Owner_Id" },
+    "ResourceAssignedResourceTypes":  { "targetTable": "UP_AssignedResourceTypes",  "targetEntity": "AssignedResourceType",  "localKey": "Id", "foreignKey": "Owner_Id" },
+    "OwnerAssignedResourceTypes":     { "targetTable": "UP_AssignedResourceTypes",  "targetEntity": "AssignedResourceType",  "localKey": "Id", "foreignKey": "Owner_Id" },
+    "Owner":          { "targetTable": "UR_Resources", "targetEntity": "Resource" },
+    "MainRecord":     { "targetTable": "UR_Resources", "targetEntity": "Resource" },
+    "Organization":   { "targetTable": "UR_Resources", "targetEntity": "Resource" },
+    "Site":           { "targetTable": "UR_Resources", "targetEntity": "Resource" },
+    "PresenceState":  { "targetTable": "UR_Resources", "targetEntity": "Resource" }
   },
 
   "resourceEntityTypes": {

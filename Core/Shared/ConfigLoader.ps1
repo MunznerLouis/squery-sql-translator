@@ -2,25 +2,33 @@
 # Loads and validates configuration files for SQuery-SQL-Translator.
 #
 # Configuration sources (in Configs/Default/):
-#   - db-schema.json  (required) — entityAliases (edit manually) + tables/columns/FKs (auto-generated)
-#   - overrides.json  (required) — column renames, nav prop overrides, resource entity types
-#   - operator.json   (required) — SQuery operator -> SQL mapping
+#   - squery-schema.json  (auto-generated) -- SQuery entities with properties and nav props (from swagger)
+#   - sql-schema.json     (auto-generated) -- SQL tables with columns, PKs, FKs (from DB exports)
+#   - correlation.json    (manual)         -- entity-to-table bridge, column renames, nav prop overrides
+#   - operator.json       (required)       -- SQuery operator -> SQL mapping
 #
 # Custom overlay:
-#   - Configs/Custom/resource-columns.json — merged into resourceEntityTypes
+#   - Configs/Custom/resource-columns.json -- merged into resourceEntityTypes
+#
+# Performance note:
+#   squery-schema.json and sql-schema.json are large (1-2MB). They are kept as raw
+#   PSCustomObject (no ConvertToHashtable) and accessed via PSObject property lookup.
 
 class ConfigLoader {
-    # Internal data stores
-    [hashtable]$DbSchema           # from db-schema.json (entityAliases + tables)
-    [hashtable]$Overrides          # from overrides.json
-    [hashtable]$Operators          # from operator.json (unchanged)
+    # Raw config data (small files -> hashtable, big files -> PSCustomObject)
+    [object]$SquerySchema           # PSCustomObject from squery-schema.json (large)
+    [object]$SqlSchema              # PSCustomObject from sql-schema.json (large)
+    [hashtable]$Correlation         # from correlation.json (small, converted)
+    [hashtable]$Operators           # from operator.json (small, converted)
 
-    # Derived / backward-compat properties
-    [hashtable]$DatabaseMapping    # built from DbSchema.entityAliases + DbSchema.tables columns
-    [hashtable]$ResourceColumns    # built from Overrides.resourceEntityTypes + Custom overlay
+    # Derived data
+    [hashtable]$ResourceColumns     # built from correlation.resourceEntityTypes + Custom overlay
 
-    # Reverse lookup: raw table name → entity name (built at load time)
+    # Reverse lookup: raw table name -> entity name
     hidden [hashtable]$TableToEntity
+
+    # Backward-compat: used by Validator and Test-SQueryConfiguration
+    [hashtable]$DatabaseMapping
 
     [string]$ConfigPath
 
@@ -35,15 +43,15 @@ class ConfigLoader {
 
     [void] LoadConfigurations() {
         try {
-            # ---- overrides.json (required) --------------------------------
-            $overridesPath = Join-Path $this.ConfigPath "overrides.json"
-            if (-not (Test-Path $overridesPath)) {
-                throw "overrides.json not found at: $overridesPath"
+            # ---- correlation.json (required, small -> ConvertToHashtable) ----
+            $correlationPath = Join-Path $this.ConfigPath "correlation.json"
+            if (-not (Test-Path $correlationPath)) {
+                throw "correlation.json not found at: $correlationPath"
             }
-            $overridesJson = Get-Content $overridesPath -Raw | ConvertFrom-Json
-            $this.Overrides = $this.ConvertToHashtable($overridesJson)
+            $correlationJson = Get-Content $correlationPath -Raw | ConvertFrom-Json
+            $this.Correlation = $this.ConvertToHashtable($correlationJson)
 
-            # ---- operator.json (required) ---------------------------------
+            # ---- operator.json (required, small -> ConvertToHashtable) -------
             $operatorsPath = Join-Path $this.ConfigPath "operator.json"
             if (-not (Test-Path $operatorsPath)) {
                 throw "operator.json not found at: $operatorsPath"
@@ -51,30 +59,38 @@ class ConfigLoader {
             $operatorsJson = Get-Content $operatorsPath -Raw | ConvertFrom-Json
             $this.Operators = $this.ConvertToHashtable($operatorsJson)
 
-            # ---- db-schema.json (required — holds entityAliases + tables) ----
-            $dbSchemaPath = Join-Path $this.ConfigPath "db-schema.json"
-            if (-not (Test-Path $dbSchemaPath)) {
-                throw "db-schema.json not found at: $dbSchemaPath"
+            # ---- squery-schema.json (optional, large -> keep as PSCustomObject)
+            $sqSchemaPath = Join-Path $this.ConfigPath "squery-schema.json"
+            if (Test-Path $sqSchemaPath) {
+                $this.SquerySchema = Get-Content $sqSchemaPath -Raw | ConvertFrom-Json
+            } else {
+                $this.SquerySchema = $null
             }
-            $dbSchemaJson = Get-Content $dbSchemaPath -Raw | ConvertFrom-Json
-            $this.DbSchema = $this.ConvertToHashtable($dbSchemaJson)
 
-            # ---- Build reverse lookup: tableName -> entityName -------------
+            # ---- sql-schema.json (optional, large -> keep as PSCustomObject) -
+            $sqlSchemaPath = Join-Path $this.ConfigPath "sql-schema.json"
+            if (Test-Path $sqlSchemaPath) {
+                $this.SqlSchema = Get-Content $sqlSchemaPath -Raw | ConvertFrom-Json
+            } else {
+                $this.SqlSchema = $null
+            }
+
+            # ---- Build reverse lookup: tableName -> entityName --------------
             $this.TableToEntity = @{}
-            if ($this.DbSchema.ContainsKey('entityAliases')) {
-                foreach ($entityName in $this.DbSchema.entityAliases.Keys) {
-                    $tbl = $this.DbSchema.entityAliases[$entityName].tableName
+            if ($this.Correlation.ContainsKey('entityToTable')) {
+                foreach ($entityName in $this.Correlation.entityToTable.Keys) {
+                    $tbl = $this.Correlation.entityToTable[$entityName]
                     $this.TableToEntity[$tbl] = $entityName
                 }
             }
 
-            # ---- Build DatabaseMapping (backward compat) ------------------
+            # ---- Build DatabaseMapping (backward compat for Validator) ------
             $this.BuildDatabaseMapping()
 
-            # ---- Build ResourceColumns from overrides + Custom overlay ----
+            # ---- Build ResourceColumns from correlation + Custom overlay ----
             $this.BuildResourceColumns()
 
-            # ---- Validate -------------------------------------------------
+            # ---- Validate ---------------------------------------------------
             $this.ValidateConfigurations()
 
         } catch {
@@ -82,41 +98,49 @@ class ConfigLoader {
         }
     }
 
-    # Build $this.DatabaseMapping from db-schema.entityAliases + db-schema.tables columns.
+    # Build $this.DatabaseMapping from correlation.entityToTable + squery-schema properties.
     hidden [void] BuildDatabaseMapping() {
         $this.DatabaseMapping = @{ tables = @{} }
 
-        if (-not $this.DbSchema.ContainsKey('entityAliases')) { return }
+        if (-not $this.Correlation.ContainsKey('entityToTable')) { return }
 
-        foreach ($entityName in $this.DbSchema.entityAliases.Keys) {
-            $aliasInfo = $this.DbSchema.entityAliases[$entityName]
-            $rawTable  = $aliasInfo.tableName  # e.g. "UP_AssignedSingleRoles"
+        # Get squery entities block (PSCustomObject or $null)
+        $sqEntities = $null
+        if ($null -ne $this.SquerySchema -and $null -ne $this.SquerySchema.entities) {
+            $sqEntities = $this.SquerySchema.entities
+        }
 
-            # Determine allowedFields from db-schema (real column list) or default to ["*"]
+        foreach ($entityName in $this.Correlation.entityToTable.Keys) {
+            $rawTable = $this.Correlation.entityToTable[$entityName]
+
+            # Determine allowedFields from squery-schema (real property list) or default to ["*"]
             $allowedFields = @('*')
-            if ($this.DbSchema.tables.ContainsKey($rawTable)) {
-                $schemaTable = $this.DbSchema.tables[$rawTable]
-                if ($schemaTable.ContainsKey('columns') -and $schemaTable.columns.Count -gt 0) {
-                    $allowedFields = @($schemaTable.columns.Keys)
+            if ($null -ne $sqEntities) {
+                $entitySchema = $sqEntities.$entityName
+                if ($null -ne $entitySchema -and $null -ne $entitySchema.properties -and $entitySchema.properties.Count -gt 0) {
+                    $allowedFields = @($entitySchema.properties)
                 }
             }
 
+            # Auto-generate alias from entity name initials
+            $alias = [ConfigLoader]::GenerateAlias($entityName)
+
             $this.DatabaseMapping.tables[$entityName] = @{
                 tableName     = "[dbo].[$rawTable]"
-                alias         = $aliasInfo.alias
+                alias         = $alias
                 allowedFields = $allowedFields
             }
         }
     }
 
-    # Build $this.ResourceColumns from overrides.resourceEntityTypes + Custom overlay.
+    # Build $this.ResourceColumns from correlation.resourceEntityTypes + Custom overlay.
     hidden [void] BuildResourceColumns() {
         $this.ResourceColumns = @{ entityTypes = @{} }
 
-        # Load from overrides.resourceEntityTypes
-        if ($this.Overrides.ContainsKey('resourceEntityTypes')) {
-            foreach ($enName in $this.Overrides.resourceEntityTypes.Keys) {
-                $this.ResourceColumns.entityTypes[$enName] = $this.Overrides.resourceEntityTypes[$enName]
+        # Load from correlation.resourceEntityTypes
+        if ($this.Correlation.ContainsKey('resourceEntityTypes')) {
+            foreach ($enName in $this.Correlation.resourceEntityTypes.Keys) {
+                $this.ResourceColumns.entityTypes[$enName] = $this.Correlation.resourceEntityTypes[$enName]
             }
         }
 
@@ -138,24 +162,13 @@ class ConfigLoader {
     # ======================================================================
 
     [void] ValidateConfigurations() {
-        # Validate db-schema has entityAliases
-        if (-not $this.DbSchema.ContainsKey('entityAliases')) {
-            throw "db-schema.json must contain 'entityAliases' key"
+        # Validate correlation has entityToTable
+        if (-not $this.Correlation.ContainsKey('entityToTable')) {
+            throw "correlation.json must contain 'entityToTable' key"
         }
 
         if (-not $this.Operators.ContainsKey('operators')) {
             throw "operator.json must contain 'operators' key"
-        }
-
-        # Validate each entity alias has required properties
-        foreach ($entityName in $this.DbSchema.entityAliases.Keys) {
-            $entity = $this.DbSchema.entityAliases[$entityName]
-            if (-not $entity.ContainsKey('tableName')) {
-                throw "Entity '$entityName' in db-schema.json entityAliases must have 'tableName' property"
-            }
-            if (-not $entity.ContainsKey('alias')) {
-                throw "Entity '$entityName' in db-schema.json entityAliases must have 'alias' property"
-            }
         }
 
         # Validate operator definitions
@@ -175,7 +188,24 @@ class ConfigLoader {
     }
 
     # ======================================================================
-    # Public API — same signatures as before
+    # Static: auto-generate alias from entity name
+    # ======================================================================
+
+    static [string] GenerateAlias([string]$entityName) {
+        # Extract capital-letter-initiated words: AssignedSingleRole -> A, S, R -> asr
+        $words = [regex]::Matches($entityName, '[A-Z][a-z0-9_]*')
+        if ($words.Count -gt 1) {
+            $alias = ''
+            foreach ($w in $words) { $alias += $w.Value[0].ToString().ToLower() }
+            return $alias
+        }
+        # Single word: take first 4 chars lowercase
+        $len = [Math]::Min(4, $entityName.Length)
+        return $entityName.Substring(0, $len).ToLower()
+    }
+
+    # ======================================================================
+    # Public API
     # ======================================================================
 
     # Returns @{ tableName; alias; allowedFields } for a known entity,
@@ -197,8 +227,6 @@ class ConfigLoader {
     }
 
     # Checks whether a field is allowed on an entity.
-    # When db-schema.json is loaded, checks against real column list.
-    # Otherwise (allowedFields = ["*"]) allows everything.
     [bool] IsFieldAllowed([string]$entityName, [string]$fieldName) {
         try {
             $tableMapping = $this.GetTableMapping($entityName)
@@ -210,15 +238,15 @@ class ConfigLoader {
     }
 
     # Returns the DB column name for a given SQuery field name, applying:
-    #   1. Entity-specific override from overrides.entityColumnOverrides
+    #   1. Entity-specific override from correlation.entityColumnOverrides
     #   2. Resource EntityType column map (e.g. DisplayName -> CC)
     #   3. Global renames (e.g. DisplayName -> DisplayName_L1)
     #   4. Auto-rename: FooId -> Foo_Id  (FK naming; skips bare "Id" and already-underscored "_Id")
     [string] GetColumnDbName([string]$entityName, [string]$fieldName) {
         # 1. Entity-specific override
-        if ($this.Overrides.ContainsKey('entityColumnOverrides') -and
-            $this.Overrides.entityColumnOverrides.ContainsKey($entityName)) {
-            $er = $this.Overrides.entityColumnOverrides[$entityName]
+        if ($this.Correlation.ContainsKey('entityColumnOverrides') -and
+            $this.Correlation.entityColumnOverrides.ContainsKey($entityName)) {
+            $er = $this.Correlation.entityColumnOverrides[$entityName]
             if ($er.ContainsKey($fieldName) -and $er[$fieldName].ContainsKey('dbColumn')) {
                 return $er[$fieldName].dbColumn
             }
@@ -238,9 +266,9 @@ class ConfigLoader {
             }
         }
         # 3. Global renames
-        if ($this.Overrides.ContainsKey('globalColumnRenames') -and
-            $this.Overrides.globalColumnRenames.ContainsKey($fieldName)) {
-            return $this.Overrides.globalColumnRenames[$fieldName]
+        if ($this.Correlation.ContainsKey('globalColumnRenames') -and
+            $this.Correlation.globalColumnRenames.ContainsKey($fieldName)) {
+            return $this.Correlation.globalColumnRenames[$fieldName]
         }
         # 4. FK auto-rename: FooId -> Foo_Id (not bare "Id", not already "Foo_Id")
         if ($fieldName -ne 'Id' -and $fieldName.EndsWith('Id') -and -not $fieldName.EndsWith('_Id')) {
@@ -251,16 +279,21 @@ class ConfigLoader {
 
     # Returns navigation property definition, or $null if not found.
     # Priority:
-    #   1. Manual overrides in overrides.json navigationPropertyOverrides
-    #   2. Auto-deduction from db-schema.json foreign keys
+    #   1. Manual overrides in correlation.json navigationPropertyOverrides
+    #   2. Auto-deduction from sql-schema.json foreign keys
+    #   3. Resource EntityType generic nav props (correlation.json resourceNavigationProperties)
     # FK convention defaults: localKey = "{navPropName}_Id", foreignKey = "Id"
     [hashtable] GetNavProp([string]$entityName, [string]$navPropName) {
         # 1. Check manual overrides
         $result = $this.GetNavPropFromOverrides($entityName, $navPropName)
         if ($null -ne $result) { return $result }
 
-        # 2. Auto-deduce from db-schema FK
-        $result = $this.GetNavPropFromDbSchema($entityName, $navPropName)
+        # 2. Auto-deduce from sql-schema FK
+        $result = $this.GetNavPropFromSqlSchema($entityName, $navPropName)
+        if ($null -ne $result) { return $result }
+
+        # 3. Resource EntityType generic nav props
+        $result = $this.GetNavPropFromResourceDefaults($entityName, $navPropName)
         if ($null -ne $result) { return $result }
 
         return $null
@@ -282,12 +315,12 @@ class ConfigLoader {
     # Nav prop resolution helpers
     # ======================================================================
 
-    # Look up nav prop in overrides.json navigationPropertyOverrides.
+    # Look up nav prop in correlation.json navigationPropertyOverrides.
     hidden [hashtable] GetNavPropFromOverrides([string]$entityName, [string]$navPropName) {
-        if (-not $this.Overrides.ContainsKey('navigationPropertyOverrides')) {
+        if (-not $this.Correlation.ContainsKey('navigationPropertyOverrides')) {
             return $null
         }
-        $navProps = $this.Overrides.navigationPropertyOverrides
+        $navProps = $this.Correlation.navigationPropertyOverrides
         if (-not $navProps.ContainsKey($entityName)) {
             return $null
         }
@@ -314,23 +347,24 @@ class ConfigLoader {
         return $result
     }
 
-    # Auto-deduce nav prop from db-schema.json foreign keys.
+    # Auto-deduce nav prop from sql-schema.json foreign keys (PSCustomObject access).
     # Looks for column "{navPropName}_Id" with a declared FK in the entity's table.
-    hidden [hashtable] GetNavPropFromDbSchema([string]$entityName, [string]$navPropName) {
-        if (-not $this.DbSchema.ContainsKey('tables') -or $this.DbSchema.tables.Count -eq 0) { return $null }
+    hidden [hashtable] GetNavPropFromSqlSchema([string]$entityName, [string]$navPropName) {
+        if ($null -eq $this.SqlSchema -or $null -eq $this.SqlSchema.tables) { return $null }
 
-        # Resolve entity -> raw table name (from db-schema.entityAliases)
-        if (-not $this.DbSchema.entityAliases.ContainsKey($entityName)) { return $null }
-        $rawTable = $this.DbSchema.entityAliases[$entityName].tableName
+        # Resolve entity -> raw table name (from correlation.entityToTable)
+        if (-not $this.Correlation.ContainsKey('entityToTable')) { return $null }
+        if (-not $this.Correlation.entityToTable.ContainsKey($entityName)) { return $null }
+        $rawTable = $this.Correlation.entityToTable[$entityName]
 
-        if (-not $this.DbSchema.tables.ContainsKey($rawTable)) { return $null }
-        $tableSchema = $this.DbSchema.tables[$rawTable]
-        if (-not $tableSchema.ContainsKey('foreignKeys')) { return $null }
+        # PSCustomObject property access (no .ContainsKey)
+        $tableSchema = $this.SqlSchema.tables.$rawTable
+        if ($null -eq $tableSchema -or $null -eq $tableSchema.foreignKeys) { return $null }
 
         $fkCol = "${navPropName}_Id"
-        if (-not $tableSchema.foreignKeys.ContainsKey($fkCol)) { return $null }
+        $fk = $tableSchema.foreignKeys.$fkCol
+        if ($null -eq $fk) { return $null }
 
-        $fk = $tableSchema.foreignKeys[$fkCol]
         $refTable  = $fk.referencedTable   # raw table name, e.g. "UP_SingleRoles"
         $refColumn = $fk.referencedColumn  # e.g. "Id"
 
@@ -348,8 +382,35 @@ class ConfigLoader {
         }
     }
 
+    # Look up nav prop in correlation.json resourceNavigationProperties (generic Resource EntityType nav props).
+    # Only applies when the entity is a Resource EntityType (found in ResourceColumns).
+    hidden [hashtable] GetNavPropFromResourceDefaults([string]$entityName, [string]$navPropName) {
+        # Only applies to Resource EntityTypes
+        $resConfig = $this.GetResourceEntityConfig($entityName)
+        if ($null -eq $resConfig) { return $null }
+
+        if (-not $this.Correlation.ContainsKey('resourceNavigationProperties')) { return $null }
+        $resNavProps = $this.Correlation.resourceNavigationProperties
+        if (-not $resNavProps.ContainsKey($navPropName)) { return $null }
+
+        $raw = $resNavProps[$navPropName]
+
+        $result = @{}
+        foreach ($k in $raw.Keys) { $result[$k] = $raw[$k] }
+
+        if ($result.ContainsKey('targetTable') -and $result.targetTable -notmatch '^\[') {
+            $result.targetTable = "[dbo].[$($result.targetTable)]"
+        }
+
+        if (-not $result.ContainsKey('localKey'))   { $result['localKey']   = "${navPropName}_Id" }
+        if (-not $result.ContainsKey('foreignKey')) { $result['foreignKey'] = 'Id' }
+
+        return $result
+    }
+
     # ======================================================================
-    # Helper: PSCustomObject → Hashtable (recursive)
+    # Helper: PSCustomObject -> Hashtable (recursive)
+    # Only used for small config files (correlation.json, operator.json).
     # ======================================================================
 
     [hashtable] ConvertToHashtable([object]$obj) {
