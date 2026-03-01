@@ -48,7 +48,8 @@ class SQueryValidator {
             $rootAlias = $tableMapping.alias
             $this.AliasToEntity[$rootAlias] = $this.AST.RootEntity
         } catch {
-            $null = $this.Errors.Add("Root entity '$($this.AST.RootEntity)' not found in correlation.json entityToTable")
+            $entity = $this.AST.RootEntity
+            $null = $this.Errors.Add("Root entity '$entity' is not mapped to any SQL table. Add it to correlation.json -> entityToTable.")
             # Can't continue most checks without a valid root entity
             return $false
         }
@@ -94,13 +95,13 @@ class SQueryValidator {
 
             # -- 4. Duplicate alias check --------------------------------------
             if (-not $seenAliases.Add($alias)) {
-                $null = $this.Errors.Add("Duplicate JOIN alias '$alias'. Each alias must be unique.")
+                $null = $this.Errors.Add("Duplicate JOIN alias '$alias'. Each alias must be unique in the SQuery. Rename one of the JOINs using a different alias.")
                 continue
             }
 
             # -- 5. Alias collides with root alias -----------------------------
             if ($alias -eq $rootAlias) {
-                $null = $this.Errors.Add("JOIN alias '$alias' collides with root entity alias.")
+                $null = $this.Errors.Add("JOIN alias '$alias' collides with the root entity alias. Choose a different alias for this JOIN.")
                 continue
             }
 
@@ -124,7 +125,12 @@ class SQueryValidator {
             if ($this.AliasToEntity.ContainsKey($parentAlias)) {
                 $parentEntity = $this.AliasToEntity[$parentAlias]
             } else {
-                $null = $this.Errors.Add("JOIN '$alias': parent alias '$parentAlias' is not declared. Declare it in a preceding JOIN.")
+                $availAliases = $this.AliasToEntity.Keys -join ', '
+                $nl = [Environment]::NewLine
+                $msg = "JOIN '${alias}': parent alias '${parentAlias}' (from '${entityPath}') is not declared.${nl}"
+                $msg += "  Cause: '${parentAlias}' must appear in a preceding JOIN before it can be referenced.${nl}"
+                $msg += "  Available aliases: ${availAliases}."
+                $null = $this.Errors.Add($msg)
                 # Track alias anyway so later references don't cascade errors
                 $this.AliasToEntity[$alias] = $navPropName
                 continue
@@ -133,7 +139,11 @@ class SQueryValidator {
             # Check nav prop in config
             $navProp = $this.Config.GetNavProp($parentEntity, $navPropName)
             if ($null -eq $navProp) {
-                $null = $this.Warnings.Add("JOIN '$alias': navigation property '$navPropName' is not defined for entity '$parentEntity'. The generated JOIN may be incorrect.")
+                $nl = [Environment]::NewLine
+                $msg = "JOIN '${alias}': navigation property '${navPropName}' is not defined for entity '${parentEntity}'.${nl}"
+                $msg += "  Effect: the LEFT JOIN was skipped, fields using '${alias}.*' will be missing from the output.${nl}"
+                $msg += "  Fix:    add '${navPropName}' to correlation.json -> navigationPropertyOverrides -> ${parentEntity}."
+                $null = $this.Warnings.Add($msg)
                 $null = $this.UnresolvedAliases.Add($alias)
             }
 
@@ -185,7 +195,7 @@ class SQueryValidator {
 
         # -- 10. Depth check ---------------------------------------------------
         if ($depth -gt [SQueryValidator]::MaxWhereDepth) {
-            $null = $this.Warnings.Add("WHERE expression nesting depth exceeds $([SQueryValidator]::MaxWhereDepth). Consider simplifying the query.")
+            $null = $this.Warnings.Add("WHERE clause has more than $([SQueryValidator]::MaxWhereDepth) levels of nested parentheses. This may indicate a malformed query. Consider simplifying.")
             return   # stop recursing to avoid stack overflow
         }
 
@@ -230,7 +240,12 @@ class SQueryValidator {
 
         # -- 7. Alias must be declared -----------------------------------------
         if (-not $this.AliasToEntity.ContainsKey($alias)) {
-            $null = $this.Errors.Add("${clause}: alias '$alias' in field '$field' is not declared. Available aliases: $($this.AliasToEntity.Keys -join ', ')")
+            $availAliases = $this.AliasToEntity.Keys -join ', '
+            $nl = [Environment]::NewLine
+            $msg = "${clause}: alias '${alias}' in '${field}' is not declared.${nl}"
+            $msg += "  Fix:    add a JOIN for '${alias}' before using it (e.g. 'join SomeEntity ${alias}').${nl}"
+            $msg += "  Available aliases: ${availAliases}."
+            $null = $this.Errors.Add($msg)
             return
         }
 
@@ -240,7 +255,11 @@ class SQueryValidator {
         # -- 8. Field must be allowed (only when allowedFields is not ["*"]) ---
         $entity = $this.AliasToEntity[$alias]
         if (-not $this.Config.IsFieldAllowed($entity, $colName)) {
-            $null = $this.Warnings.Add("${clause}: field '$colName' may not exist on entity '$entity'. Check squery-schema.json.")
+            $nl = [Environment]::NewLine
+            $msg = "${clause}: field '${colName}' is not a known property of entity '${entity}'.${nl}"
+            $msg += "  Possible causes: navigation property, computed field, or typo.${nl}"
+            $msg += "  Check: squery-schema.json -> entities -> ${entity} -> properties."
+            $null = $this.Warnings.Add($msg)
         }
     }
 

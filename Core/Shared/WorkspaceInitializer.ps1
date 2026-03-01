@@ -76,7 +76,7 @@ function Read-EntityTypesFromSqlServer {
         [string]$ServerInstance,
         [string]$Database,
         [string]$Login,
-        [string]$Password
+        [System.Security.SecureString]$Password
     )
 
     # Read the discovery query from the .sql file
@@ -86,7 +86,11 @@ function Read-EntityTypesFromSqlServer {
     }
     $query = Get-Content $sqlFile -Raw
 
-    $connStr = "Server=$ServerInstance;Database=$Database;User Id=$Login;Password=$Password"
+    # Convert SecureString to plain text for connection string
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+    $plainPwd = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    $connStr = "Server=$ServerInstance;Database=$Database;User Id=$Login;Password=$plainPwd"
     try {
         $conn = [System.Data.SqlClient.SqlConnection]::new($connStr)
         $conn.Open()
@@ -240,7 +244,7 @@ function Initialize-Workspace {
         [string]$Login,
 
         [Parameter(Mandatory=$false)]
-        [string]$Password
+        [System.Security.SecureString]$Password
     )
 
     $configRoot = Split-Path $script:DefaultConfigPath -Parent
@@ -320,12 +324,12 @@ function Initialize-Workspace {
         if ([string]::IsNullOrWhiteSpace($Login)) {
             $Login = (Read-Host '  Login').Trim()
         }
-        if ([string]::IsNullOrWhiteSpace($Password)) {
-            $Password = (Read-Host '  Password').Trim()
+        if ($null -eq $Password) {
+            $Password = Read-Host '  Password' -AsSecureString
         }
 
         if ([string]::IsNullOrWhiteSpace($ServerInstance) -or [string]::IsNullOrWhiteSpace($Database) -or
-            [string]::IsNullOrWhiteSpace($Login) -or [string]::IsNullOrWhiteSpace($Password)) {
+            [string]::IsNullOrWhiteSpace($Login) -or $null -eq $Password -or $Password.Length -eq 0) {
             Write-Host '  Missing connection details. Setup cancelled.' -ForegroundColor Yellow
             return
         }
@@ -459,7 +463,7 @@ function Update-SQueryEntityTypes {
         [string]$Login,
 
         [Parameter(Mandatory=$true, ParameterSetName='FromSqlServer')]
-        [string]$Password,
+        [System.Security.SecureString]$Password,
 
         [Parameter(Mandatory=$false)]
         [switch]$Merge

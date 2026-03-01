@@ -166,7 +166,7 @@ class SQueryLexer {
             }
 
             # Unknown - skip with warning
-            Write-Warning "SQueryLexer: unknown character '$ch' at position $($this.Pos)"
+            Write-Warning "Lexer: unexpected character '$ch' at position $($this.Pos). This character is not part of SQuery syntax and was skipped."
             $this.Pos++
         }
 

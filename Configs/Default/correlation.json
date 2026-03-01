@@ -21,7 +21,7 @@
     "Job": "UJ_Jobs",
     "JobInstance": "UJ_JobInstances",
     "JobStep": "UJ_JobSteps",
-    "Package": "UC_Packages",
+    "Package": "UC_ConnectionPackages",
     "PointCut": "UW_PointCuts",
     "Policy": "UP_Policies",
     "Property": "UM_EntityProperties",
@@ -54,6 +54,20 @@
   },
 
   "entityColumnOverrides": {
+    "AssignedResourceType": {
+      "RoleId": "ResourceType_Id"
+    },
+    "AutomationRule": {
+      "WaitingTime":              "HoursToWait",
+      "AutomationRuleDecision":   "Decision",
+      "AutomationRuleType":       "Type"
+    },
+    "ResourceTypeRule": {
+      "RoleId": "ResourceType_Id"
+    },
+    "SingleRole": {
+      "RoleReviewState": "State"
+    }
   },
 
   "navigationPropertyOverrides": {

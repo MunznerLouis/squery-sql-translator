@@ -243,12 +243,12 @@ class ConfigLoader {
     #   3. Global renames (e.g. DisplayName -> DisplayName_L1)
     #   4. Auto-rename: FooId -> Foo_Id  (FK naming; skips bare "Id" and already-underscored "_Id")
     [string] GetColumnDbName([string]$entityName, [string]$fieldName) {
-        # 1. Entity-specific override
+        # 1. Entity-specific override (flat map: "SQueryName" -> "DbColumn")
         if ($this.Correlation.ContainsKey('entityColumnOverrides') -and
             $this.Correlation.entityColumnOverrides.ContainsKey($entityName)) {
             $er = $this.Correlation.entityColumnOverrides[$entityName]
-            if ($er.ContainsKey($fieldName) -and $er[$fieldName].ContainsKey('dbColumn')) {
-                return $er[$fieldName].dbColumn
+            if ($er.ContainsKey($fieldName)) {
+                return $er[$fieldName]
             }
         }
         # 2. Resource EntityType column map

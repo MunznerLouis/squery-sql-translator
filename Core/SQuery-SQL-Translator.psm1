@@ -115,8 +115,9 @@ function Convert-SQueryToSql {
                     }
 
                     # Extract squery= value (ParseQueryString already URL-decodes it)
-                    if (-not [string]::IsNullOrWhiteSpace($parsedParams['squery'])) {
-                        $QueryString = $parsedParams['squery']
+                    $sqValue = $parsedParams['squery']
+                    if ($null -ne $sqValue) {
+                        $QueryString = $sqValue
                         Write-Verbose "Extracted squery parameter"
                     } else {
                         throw "No squery= parameter found in URL. Expected format: ...?squery=join+...+select+...&QueryRootEntityType=EntityName"
@@ -128,7 +129,7 @@ function Convert-SQueryToSql {
             }
 
             if ([string]::IsNullOrWhiteSpace($QueryString)) {
-                Write-Warning "SQuery string is empty. Generating basic SELECT query."
+                Write-Warning "SQuery string is empty (no squery= parameter or blank value). Generating a basic 'SELECT *' for entity '$RootEntity'."
             }
 
             Write-Verbose "SQuery: $QueryString"

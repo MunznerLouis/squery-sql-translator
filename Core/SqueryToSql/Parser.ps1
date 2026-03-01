@@ -163,7 +163,7 @@ class SQueryParser {
             $tok = $this.Peek()
 
             if ($tok.Type -ne 'KEYWORD') {
-                Write-Warning "SQueryParser: unexpected token '$($tok.Value)' (type=$($tok.Type)) at pos $($tok.Position) - skipping"
+                Write-Warning "Parser: unexpected token '$($tok.Value)' (type=$($tok.Type)) at position $($tok.Position). Expected a keyword (join, select, where, order, top). This token was skipped."
                 $this.Consume()
                 continue
             }
@@ -175,7 +175,7 @@ class SQueryParser {
                 'where'  { $ast.Where  = $this.ParseWhere() }
                 'order'  { $this.ParseOrderBy($ast) }
                 default  {
-                    Write-Warning "SQueryParser: unexpected keyword '$($tok.Value)' at top level - skipping"
+                    Write-Warning "Parser: unrecognized keyword '$($tok.Value)' at top level. Valid keywords are: join, select, where, order, top. This keyword was skipped."
                     $this.Consume()
                 }
             }
@@ -318,7 +318,7 @@ class SQueryParser {
                 $this.Consume()   # consume ')'
             } else {
                 $got = if ($this.Peek()) { $this.Peek().Value } else { 'EOF' }
-                Write-Warning "SQueryParser: expected ')' but got '$got'"
+                Write-Warning "Parser: missing closing parenthesis ')' in WHERE clause. Got '$got' instead. The expression may be incorrectly grouped."
             }
             return $expr
         }

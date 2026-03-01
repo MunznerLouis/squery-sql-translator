@@ -271,7 +271,7 @@ class SQueryTransformer {
         # Look up navigation property in config
         $navProp = $this.Config.GetNavProp($parentEntity, $navPropName)
         if ($null -eq $navProp) {
-            Write-Warning "SQueryTransformer: no navigation property '$navPropName' defined for entity '$parentEntity' (join alias '$alias')"
+            # Warning already emitted by Validator — skip duplicate here
             # Track the alias anyway so chained joins can reference it
             $this.AliasToEntity[$alias] = $navPropName
             return
