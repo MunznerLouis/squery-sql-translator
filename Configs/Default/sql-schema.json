@@ -1,12 +1,13 @@
 ﻿{
     "description":  "SQL Server schema - auto-generated from DB exports by Generate-SqlSchema.ps1. DO NOT EDIT.",
-    "generatedAt":  "2026-02-27",
+    "generatedAt":  "2026-03-09",
     "tables":  {
                    "UA_AccessControlEntityProperties":  {
                                                             "columns":  {
                                                                             "Id":  "bigint",
                                                                             "VisibilityGroup_Id":  "bigint"
                                                                         },
+                                                            "hasValidTo":  false,
                                                             "primaryKey":  [
                                                                                "Id"
                                                                            ],
@@ -34,6 +35,7 @@
                                                                    "Priority":  "int",
                                                                    "FullAccessProperties":  "bit"
                                                                },
+                                                   "hasValidTo":  false,
                                                    "primaryKey":  [
                                                                       "Id"
                                                                   ],
@@ -67,6 +69,7 @@
                                                                    "Value":  "nvarchar",
                                                                    "Group":  "nvarchar"
                                                                },
+                                                   "hasValidTo":  false,
                                                    "primaryKey":  [
                                                                       "Id"
                                                                   ],
@@ -91,6 +94,7 @@
                                                                        "BlockInheritance":  "bit",
                                                                        "Identifier":  "varchar"
                                                                    },
+                                                       "hasValidTo":  false,
                                                        "primaryKey":  [
                                                                           "Id"
                                                                       ]
@@ -116,6 +120,7 @@
                                                                           "DisplayName_L15":  "nvarchar",
                                                                           "DisplayName_L16":  "nvarchar"
                                                                       },
+                                                          "hasValidTo":  false,
                                                           "primaryKey":  [
                                                                              "Id"
                                                                          ]
@@ -143,6 +148,7 @@
                                                                  "DisplayName_L15":  "nvarchar",
                                                                  "DisplayName_L16":  "nvarchar"
                                                              },
+                                                 "hasValidTo":  false,
                                                  "primaryKey":  [
                                                                     "Id"
                                                                 ],
@@ -169,6 +175,7 @@
                                                                "EndDate":  "smalldatetime",
                                                                "Email":  "nvarchar"
                                                            },
+                                               "hasValidTo":  false,
                                                "primaryKey":  [
                                                                   "Id"
                                                               ],
@@ -189,6 +196,7 @@
                                                             "Token":  "nvarchar",
                                                             "ExpireDate":  "smalldatetime"
                                                         },
+                                            "hasValidTo":  false,
                                             "primaryKey":  [
                                                                "Guid"
                                                            ]
@@ -218,6 +226,7 @@
                                                             "Profile_Id":  "bigint",
                                                             "Context_Id":  "bigint"
                                                         },
+                                            "hasValidTo":  false,
                                             "primaryKey":  [
                                                                "Id"
                                                            ],
@@ -369,6 +378,7 @@
                                                               "D3U_Id":  "bigint",
                                                               "D3V_Id":  "bigint"
                                                           },
+                                              "hasValidTo":  false,
                                               "primaryKey":  [
                                                                  "Id"
                                                              ],
@@ -400,6 +410,7 @@
                                                                   "EntityType_Id":  "bigint",
                                                                   "IsAppliedToRoot":  "bit"
                                                               },
+                                                  "hasValidTo":  false,
                                                   "primaryKey":  [
                                                                      "Id"
                                                                  ],
@@ -559,6 +570,7 @@
                                                            "B3U_Id":  "bigint",
                                                            "B3V_Id":  "bigint"
                                                        },
+                                           "hasValidTo":  false,
                                            "primaryKey":  [
                                                               "Id"
                                                           ],
@@ -1107,6 +1119,7 @@
                                                        "DisplayName_L16":  "nvarchar",
                                                        "IsComponent":  "bit"
                                                    },
+                                       "hasValidTo":  false,
                                        "primaryKey":  [
                                                           "Id"
                                                       ]
@@ -1134,6 +1147,7 @@
                                                      "State":  "int",
                                                      "URI":  "nvarchar"
                                                  },
+                                     "hasValidTo":  false,
                                      "primaryKey":  [
                                                         "Id"
                                                     ]
@@ -1152,6 +1166,7 @@
                                                                 "UpdateDate":  "datetime",
                                                                 "ForeignColumn_Id":  "bigint"
                                                             },
+                                                "hasValidTo":  false,
                                                 "primaryKey":  [
                                                                    "Id"
                                                                ],
@@ -1216,6 +1231,7 @@
                                                                  "DocumentationUrl":  "nvarchar",
                                                                  "License":  "nvarchar"
                                                              },
+                                                 "hasValidTo":  false,
                                                  "primaryKey":  [
                                                                     "Id"
                                                                 ]
@@ -1247,6 +1263,7 @@
                                                           "DeactivationExportFulfill":  "int",
                                                           "Package521_Id":  "bigint"
                                                       },
+                                          "hasValidTo":  false,
                                           "primaryKey":  [
                                                              "Id"
                                                          ],
@@ -1270,6 +1287,7 @@
                                                                "Path":  "nvarchar",
                                                                "UpdateDate":  "datetime"
                                                            },
+                                               "hasValidTo":  false,
                                                "primaryKey":  [
                                                                   "Id"
                                                               ],
@@ -1304,6 +1322,7 @@
                                                                         "RemoveDuplicates":  "bit",
                                                                         "SortValues":  "bit"
                                                                     },
+                                                        "hasValidTo":  false,
                                                         "primaryKey":  [
                                                                            "Id"
                                                                        ],
@@ -1350,6 +1369,7 @@
                                                          "DisplayName_L15":  "nvarchar",
                                                          "DisplayName_L16":  "nvarchar"
                                                      },
+                                         "hasValidTo":  false,
                                          "primaryKey":  [
                                                             "Id"
                                                         ],
@@ -1375,6 +1395,7 @@
                                                                         "MaxPercentageDeletedLines":  "int",
                                                                         "C0":  "nvarchar"
                                                                     },
+                                                        "hasValidTo":  false,
                                                         "primaryKey":  [
                                                                            "Id"
                                                                        ],
@@ -1406,6 +1427,7 @@
                                                                      "ConnectionColumn":  "nvarchar",
                                                                      "Format":  "nvarchar"
                                                                  },
+                                                     "hasValidTo":  false,
                                                      "primaryKey":  [
                                                                         "Id"
                                                                     ],
@@ -1430,6 +1452,7 @@
                                                                  "ConnectionTable":  "nvarchar",
                                                                  "C0":  "nvarchar"
                                                              },
+                                                 "hasValidTo":  false,
                                                  "primaryKey":  [
                                                                     "Id"
                                                                 ],
@@ -1465,6 +1488,7 @@
                                                                     "GeneratedSymbolCharsCount":  "int",
                                                                     "GeneratedDigitCharsCount":  "int"
                                                                 },
+                                                    "hasValidTo":  false,
                                                     "primaryKey":  [
                                                                        "Id"
                                                                    ],
@@ -1504,6 +1528,7 @@
                                                                        "C9":  "nvarchar",
                                                                        "C10":  "nvarchar"
                                                                    },
+                                                       "hasValidTo":  false,
                                                        "primaryKey":  [
                                                                           "Id"
                                                                       ],
@@ -1536,6 +1561,7 @@
                                                                    "C10":  "nvarchar",
                                                                    "Type":  "int"
                                                                },
+                                                   "hasValidTo":  false,
                                                    "primaryKey":  [
                                                                       "Id"
                                                                   ],
@@ -1562,6 +1588,7 @@
                                                                      "ExecutionDate":  "datetime2",
                                                                      "State":  "tinyint"
                                                                  },
+                                                     "hasValidTo":  false,
                                                      "primaryKey":  [
                                                                         "Connector_Id",
                                                                         "HistorizationDate"
@@ -1584,6 +1611,7 @@
                                                                 "Type":  "int",
                                                                 "Data":  "varbinary"
                                                             },
+                                                "hasValidTo":  false,
                                                 "primaryKey":  [
                                                                    "Id"
                                                                ]
@@ -1598,6 +1626,7 @@
                                                                      "ConsolidationMode":  "int",
                                                                      "IsManualUpdate":  "bit"
                                                                  },
+                                                     "hasValidTo":  false,
                                                      "primaryKey":  [
                                                                         "TableName",
                                                                         "Item_Id",
@@ -1617,6 +1646,7 @@
                                                                  "Id":  "bigint",
                                                                  "FilePath":  "nvarchar"
                                                              },
+                                                 "hasValidTo":  false,
                                                  "primaryKey":  [
                                                                     "Id"
                                                                 ]
@@ -1646,6 +1676,7 @@
                                                                    "EmailDomain":  "nvarchar",
                                                                    "NameSeparator":  "nvarchar"
                                                                },
+                                                   "hasValidTo":  false,
                                                    "primaryKey":  [
                                                                       "Id"
                                                                   ],
@@ -1690,6 +1721,7 @@
                                                            "DisplayName_L15":  "nvarchar",
                                                            "DisplayName_L16":  "nvarchar"
                                                        },
+                                           "hasValidTo":  false,
                                            "primaryKey":  [
                                                               "Id"
                                                           ],
@@ -1734,6 +1766,7 @@
                                                                         "IsHierarchical":  "bit",
                                                                         "ParentTreeNavDisplayProperty_Id":  "bigint"
                                                                     },
+                                                        "hasValidTo":  false,
                                                         "primaryKey":  [
                                                                            "Id"
                                                                        ],
@@ -1799,6 +1832,7 @@
                                                                       "MinSearchLength":  "int",
                                                                       "AddedMinutes":  "int"
                                                                   },
+                                                      "hasValidTo":  false,
                                                       "primaryKey":  [
                                                                          "Id"
                                                                      ],
@@ -1992,6 +2026,7 @@
                                                                  "MinSearchLength":  "int",
                                                                  "Priority":  "int"
                                                              },
+                                                 "hasValidTo":  false,
                                                  "primaryKey":  [
                                                                     "Id"
                                                                 ],
@@ -2027,6 +2062,7 @@
                                                                     "DisplayName_L15":  "nvarchar",
                                                                     "DisplayName_L16":  "nvarchar"
                                                                 },
+                                                    "hasValidTo":  false,
                                                     "primaryKey":  [
                                                                        "Id"
                                                                    ]
@@ -2067,6 +2103,7 @@
                                                                   "DisplayName_L16":  "nvarchar",
                                                                   "AddedMinutes":  "int"
                                                               },
+                                                  "hasValidTo":  false,
                                                   "primaryKey":  [
                                                                      "Id"
                                                                  ],
@@ -2118,6 +2155,7 @@
                                                                          "DisplayName_L15":  "nvarchar",
                                                                          "DisplayName_L16":  "nvarchar"
                                                                      },
+                                                         "hasValidTo":  false,
                                                          "primaryKey":  [
                                                                             "Id"
                                                                         ]
@@ -2133,6 +2171,7 @@
                                                             "HomonymEntityLink_Id":  "bigint",
                                                             "ParentProperty_Id":  "bigint"
                                                         },
+                                            "hasValidTo":  false,
                                             "primaryKey":  [
                                                                "Id"
                                                            ],
@@ -2216,6 +2255,7 @@
                                                            "AddedMinutes":  "int",
                                                            "DefaultValueBinding_Id":  "bigint"
                                                        },
+                                           "hasValidTo":  false,
                                            "primaryKey":  [
                                                               "Id"
                                                           ],
@@ -2398,6 +2438,7 @@
                                                     "RemoveRowLabel_L15":  "nvarchar",
                                                     "RemoveRowLabel_L16":  "nvarchar"
                                                 },
+                                    "hasValidTo":  false,
                                     "primaryKey":  [
                                                        "Id"
                                                    ],
@@ -2453,6 +2494,7 @@
                                                         "Id":  "bigint",
                                                         "Identifier":  "varchar"
                                                     },
+                                        "hasValidTo":  false,
                                         "primaryKey":  [
                                                            "Id"
                                                        ]
@@ -2481,6 +2523,7 @@
                                                              "DisplayName_L15":  "nvarchar",
                                                              "DisplayName_L16":  "nvarchar"
                                                          },
+                                             "hasValidTo":  false,
                                              "primaryKey":  [
                                                                 "Id"
                                                             ],
@@ -2500,6 +2543,7 @@
                                                          "ComparisonOperator":  "tinyint",
                                                          "Order":  "int"
                                                      },
+                                         "hasValidTo":  false,
                                          "primaryKey":  [
                                                             "Id"
                                                         ],
@@ -2523,6 +2567,7 @@
                                                          "Id":  "bigint",
                                                          "Identifier":  "varchar"
                                                      },
+                                         "hasValidTo":  false,
                                          "primaryKey":  [
                                                             "Id"
                                                         ]
@@ -2557,6 +2602,7 @@
                                                         "ReportQuery_Id":  "bigint",
                                                         "URI":  "nvarchar"
                                                     },
+                                        "hasValidTo":  false,
                                         "primaryKey":  [
                                                            "Id"
                                                        ],
@@ -2584,6 +2630,7 @@
                                                           "Id":  "bigint",
                                                           "Identifier":  "varchar"
                                                       },
+                                          "hasValidTo":  false,
                                           "primaryKey":  [
                                                              "Id"
                                                          ]
@@ -2655,6 +2702,7 @@
                                                                 "ToolTipText_L16":  "nvarchar",
                                                                 "DefaultValue":  "nvarchar"
                                                             },
+                                                "hasValidTo":  false,
                                                 "primaryKey":  [
                                                                    "Id"
                                                                ],
@@ -2722,6 +2770,7 @@
                                                                       "DisplayName_L15":  "nvarchar",
                                                                       "DisplayName_L16":  "nvarchar"
                                                                   },
+                                                      "hasValidTo":  false,
                                                       "primaryKey":  [
                                                                          "Id"
                                                                      ]
@@ -2735,6 +2784,7 @@
                                                          "SearchedBinding_Id":  "bigint",
                                                          "Menu_Id":  "bigint"
                                                      },
+                                         "hasValidTo":  false,
                                          "primaryKey":  [
                                                             "Id"
                                                         ],
@@ -2782,6 +2832,7 @@
                                                                  "DisplayName_L15":  "nvarchar",
                                                                  "DisplayName_L16":  "nvarchar"
                                                              },
+                                                 "hasValidTo":  false,
                                                  "primaryKey":  [
                                                                     "Id"
                                                                 ]
@@ -2796,6 +2847,7 @@
                                                         "LineDisplayOrderIndicator":  "int",
                                                         "AddedMinutes":  "int"
                                                     },
+                                        "hasValidTo":  false,
                                         "primaryKey":  [
                                                            "Id"
                                                        ],
@@ -2837,6 +2889,7 @@
                                                     "DisplayName_L15":  "nvarchar",
                                                     "DisplayName_L16":  "nvarchar"
                                                 },
+                                    "hasValidTo":  false,
                                     "primaryKey":  [
                                                        "Id"
                                                    ],
@@ -2866,6 +2919,7 @@
                                                            "Retry":  "bit",
                                                            "JobDefinition":  "nvarchar"
                                                        },
+                                           "hasValidTo":  false,
                                            "primaryKey":  [
                                                               "Id"
                                                           ],
@@ -2909,6 +2963,7 @@
                                                    "HasHighFrequencyExecution":  "bit",
                                                    "IsInQuotaWhitelist":  "bit"
                                                },
+                                   "hasValidTo":  false,
                                    "primaryKey":  [
                                                       "Id"
                                                   ],
@@ -2927,6 +2982,7 @@
                                                        "LaunchOrder":  "int",
                                                        "Level":  "int"
                                                    },
+                                       "hasValidTo":  false,
                                        "primaryKey":  [
                                                           "Id"
                                                       ],
@@ -2952,6 +3008,7 @@
                                                           "CompletionRedirectUri":  "nvarchar",
                                                           "EventId":  "bigint"
                                                       },
+                                          "hasValidTo":  false,
                                           "primaryKey":  [
                                                              "Id"
                                                          ]
@@ -2962,6 +3019,7 @@
                                                                 "ChildTask_Id":  "bigint",
                                                                 "ParentTask_Id":  "bigint"
                                                             },
+                                                "hasValidTo":  false,
                                                 "primaryKey":  [
                                                                    "Id"
                                                                ],
@@ -2982,6 +3040,7 @@
                                                              "Task_Id":  "bigint",
                                                              "Dimension_Id":  "bigint"
                                                          },
+                                             "hasValidTo":  false,
                                              "primaryKey":  [
                                                                 "Id"
                                                             ],
@@ -3002,6 +3061,7 @@
                                                               "Task_Id":  "bigint",
                                                               "EntityType_Id":  "bigint"
                                                           },
+                                              "hasValidTo":  false,
                                               "primaryKey":  [
                                                                  "Id"
                                                              ],
@@ -3054,6 +3114,7 @@
                                                             "DisplayName_L16":  "nvarchar",
                                                             "WrappedProgress":  "varchar"
                                                         },
+                                            "hasValidTo":  false,
                                             "primaryKey":  [
                                                                "Id"
                                                            ],
@@ -3078,6 +3139,7 @@
                                                                 "Task_Id":  "bigint",
                                                                 "ResourceType_Id":  "bigint"
                                                             },
+                                                "hasValidTo":  false,
                                                 "primaryKey":  [
                                                                    "Id"
                                                                ],
@@ -3149,6 +3211,7 @@
                                                     "LogLevel":  "int",
                                                     "Level":  "int"
                                                 },
+                                    "hasValidTo":  false,
                                     "primaryKey":  [
                                                        "Id"
                                                    ],
@@ -3174,6 +3237,7 @@
                                                            "Property_Id":  "bigint",
                                                            "Order":  "int"
                                                        },
+                                           "hasValidTo":  false,
                                            "primaryKey":  [
                                                               "Binding_Id",
                                                               "Order",
@@ -3195,6 +3259,7 @@
                                                        "Id":  "bigint",
                                                        "Path":  "nvarchar"
                                                    },
+                                       "hasValidTo":  false,
                                        "primaryKey":  [
                                                           "Id"
                                                       ]
@@ -3225,6 +3290,7 @@
                                                          "DisplayName_L15":  "nvarchar",
                                                          "DisplayName_L16":  "nvarchar"
                                                      },
+                                         "hasValidTo":  false,
                                          "primaryKey":  [
                                                             "Id"
                                                         ],
@@ -3266,6 +3332,7 @@
                                                                  "DisplayName_L15":  "nvarchar",
                                                                  "DisplayName_L16":  "nvarchar"
                                                              },
+                                                 "hasValidTo":  true,
                                                  "primaryKey":  [
                                                                     "Id"
                                                                 ],
@@ -3313,6 +3380,7 @@
                                                                "FlexibleComparisonExpression":  "varchar",
                                                                "TargetEntityType":  "bigint"
                                                            },
+                                               "hasValidTo":  true,
                                                "primaryKey":  [
                                                                   "Id"
                                                               ],
@@ -3346,6 +3414,7 @@
                                                                         "PropertyCriteria_Id":  "bigint",
                                                                         "Expression":  "varchar"
                                                                     },
+                                                        "hasValidTo":  false,
                                                         "primaryKey":  [
                                                                            "Id"
                                                                        ],
@@ -3405,6 +3474,7 @@
                                                           "IsRelatedToIdentifiedRisks":  "bit",
                                                           "UnclassifiedCount":  "int"
                                                       },
+                                          "hasValidTo":  true,
                                           "primaryKey":  [
                                                              "Id"
                                                          ]
@@ -3417,6 +3487,7 @@
                                                         "Translations":  "nvarchar",
                                                         "JsonPath":  "nvarchar"
                                                     },
+                                        "hasValidTo":  false,
                                         "primaryKey":  [
                                                            "Id"
                                                        ]
@@ -3426,6 +3497,7 @@
                                                         "Id":  "bigint",
                                                         "Value":  "bigint"
                                                     },
+                                        "hasValidTo":  false,
                                         "primaryKey":  [
                                                            "Id"
                                                        ]
@@ -3469,6 +3541,7 @@
                                                        "B14":  "varbinary",
                                                        "B15":  "varbinary"
                                                    },
+                                       "hasValidTo":  false,
                                        "primaryKey":  [
                                                           "Id"
                                                       ]
@@ -3479,6 +3552,7 @@
                                                                     "OwnerResource_Id":  "bigint",
                                                                     "LastExecutionDate":  "datetime"
                                                                 },
+                                                    "hasValidTo":  false,
                                                     "foreignKeys":  {
                                                                         "Notification_Id":  {
                                                                                                 "referencedTable":  "UN_Notifications",
@@ -3499,6 +3573,7 @@
                                                             "ReminderInterval":  "int",
                                                             "QueryFilterExpression":  "varchar"
                                                         },
+                                            "hasValidTo":  false,
                                             "primaryKey":  [
                                                                "Id"
                                                            ],
@@ -3550,6 +3625,7 @@
                                                                     "SubjectTemplate_L16":  "nvarchar",
                                                                     "BodyTemplate_L16":  "nvarchar"
                                                                 },
+                                                    "hasValidTo":  false,
                                                     "primaryKey":  [
                                                                        "Id"
                                                                    ]
@@ -3591,6 +3667,7 @@
                                                                      "ReviewComment3":  "nvarchar",
                                                                      "RiskReviewComment":  "nvarchar"
                                                                  },
+                                                     "hasValidTo":  true,
                                                      "primaryKey":  [
                                                                         "ValidTo",
                                                                         "OwnerType",
@@ -3639,6 +3716,7 @@
                                                                        "PolicyResourceFile_Id":  "bigint",
                                                                        "IsPending":  "bit"
                                                                    },
+                                                       "hasValidTo":  true,
                                                        "primaryKey":  [
                                                                           "ValidTo",
                                                                           "Id"
@@ -3662,6 +3740,7 @@
                                                                      "AssignedResourceType_Id":  "bigint",
                                                                      "Message":  "nvarchar"
                                                                  },
+                                                     "hasValidTo":  false,
                                                      "primaryKey":  [
                                                                         "Id"
                                                                     ],
@@ -3698,6 +3777,7 @@
                                                                           "WorkflowInstance_Id":  "bigint",
                                                                           "PolicyResource_Id":  "bigint"
                                                                       },
+                                                          "hasValidTo":  true,
                                                           "primaryKey":  [
                                                                              "ValidTo",
                                                                              "Id"
@@ -3735,6 +3815,7 @@
                                                                       "PolicyValue":  "nvarchar",
                                                                       "IsPending":  "bit"
                                                                   },
+                                                      "hasValidTo":  true,
                                                       "primaryKey":  [
                                                                          "ValidTo",
                                                                          "Id"
@@ -3801,6 +3882,7 @@
                                                                     "WhenTransmitted":  "smalldatetime",
                                                                     "Arguments":  "nvarchar"
                                                                 },
+                                                    "hasValidTo":  true,
                                                     "primaryKey":  [
                                                                        "ValidTo",
                                                                        "Id"
@@ -3857,6 +3939,7 @@
                                                                   "ReviewComment3":  "nvarchar",
                                                                   "RiskReviewComment":  "nvarchar"
                                                               },
+                                                  "hasValidTo":  true,
                                                   "primaryKey":  [
                                                                      "ValidTo",
                                                                      "OwnerType",
@@ -4155,6 +4238,7 @@
                                                               "D3U_Id":  "bigint",
                                                               "D3V_Id":  "bigint"
                                                           },
+                                              "hasValidTo":  false,
                                               "primaryKey":  [
                                                                  "Id"
                                                              ],
@@ -4192,6 +4276,7 @@
                                                                  "Binding_Id":  "bigint",
                                                                  "Expression":  "varchar"
                                                              },
+                                                 "hasValidTo":  false,
                                                  "primaryKey":  [
                                                                     "EntityType_Id",
                                                                     "Hash"
@@ -4274,6 +4359,7 @@
                                                          "WhenChanged":  "smalldatetime",
                                                          "ChangedBy_Id":  "bigint"
                                                      },
+                                         "hasValidTo":  true,
                                          "primaryKey":  [
                                                             "Id"
                                                         ],
@@ -4560,6 +4646,7 @@
                                                                  "D3V_Id":  "bigint",
                                                                  "BaseRule_Id":  "bigint"
                                                              },
+                                                 "hasValidTo":  false,
                                                  "primaryKey":  [
                                                                     "Id"
                                                                 ],
@@ -4914,6 +5001,7 @@
                                                              "Description_L15":  "nvarchar",
                                                              "Description_L16":  "nvarchar"
                                                          },
+                                             "hasValidTo":  true,
                                              "primaryKey":  [
                                                                 "Id"
                                                             ],
@@ -4937,6 +5025,7 @@
                                                                        "CompositeRole_Id":  "bigint",
                                                                        "Category_Id":  "bigint"
                                                                    },
+                                                       "hasValidTo":  false,
                                                        "primaryKey":  [
                                                                           "CompositeRole_Id",
                                                                           "Category_Id"
@@ -5120,6 +5209,7 @@
                                                            "B3U_Id":  "bigint",
                                                            "B3V_Id":  "bigint"
                                                        },
+                                           "hasValidTo":  false,
                                            "primaryKey":  [
                                                               "Id"
                                                           ],
@@ -5811,6 +5901,7 @@
                                                        "D3U_Id":  "bigint",
                                                        "D3V_Id":  "bigint"
                                                    },
+                                       "hasValidTo":  false,
                                        "primaryKey":  [
                                                           "Id"
                                                       ]
@@ -5831,6 +5922,7 @@
                                                               "ValidFrom":  "datetime2",
                                                               "ValidTo":  "datetime2"
                                                           },
+                                              "hasValidTo":  true,
                                               "primaryKey":  [
                                                                  "ValidTo",
                                                                  "Id"
@@ -5860,6 +5952,7 @@
                                                                     "WhenChanged":  "smalldatetime",
                                                                     "ChangedBy_Id":  "bigint"
                                                                 },
+                                                    "hasValidTo":  false,
                                                     "primaryKey":  [
                                                                        "Id"
                                                                    ],
@@ -5913,6 +6006,7 @@
                                                           "WhenChanged":  "smalldatetime",
                                                           "ChangedBy_Id":  "bigint"
                                                       },
+                                          "hasValidTo":  true,
                                           "primaryKey":  [
                                                              "Id"
                                                          ],
@@ -6105,6 +6199,7 @@
                                                        "D3U_Id":  "bigint",
                                                        "D3V_Id":  "bigint"
                                                    },
+                                       "hasValidTo":  true,
                                        "primaryKey":  [
                                                           "Id"
                                                       ]
@@ -6148,6 +6243,7 @@
                                                                 "RiskDeletedCount":  "int",
                                                                 "RiskAddedCount":  "int"
                                                             },
+                                                "hasValidTo":  false,
                                                 "primaryKey":  [
                                                                    "Id"
                                                                ],
@@ -6174,6 +6270,7 @@
                                                                "WhenChanged":  "smalldatetime",
                                                                "ChangedBy_Id":  "bigint"
                                                            },
+                                               "hasValidTo":  false,
                                                "primaryKey":  [
                                                                   "Id"
                                                               ],
@@ -6223,6 +6320,7 @@
                                                              "WhenChanged":  "smalldatetime",
                                                              "ChangedBy_Id":  "bigint"
                                                          },
+                                             "hasValidTo":  false,
                                              "primaryKey":  [
                                                                 "Id"
                                                             ],
@@ -6262,6 +6360,7 @@
                                                                   "WhenChanged":  "smalldatetime",
                                                                   "ChangedBy_Id":  "bigint"
                                                               },
+                                                  "hasValidTo":  false,
                                                   "primaryKey":  [
                                                                      "Id"
                                                                  ],
@@ -6307,6 +6406,7 @@
                                                                           "ChangedBy_Id":  "bigint",
                                                                           "BaseRule_Id":  "bigint"
                                                                       },
+                                                          "hasValidTo":  false,
                                                           "primaryKey":  [
                                                                              "Id"
                                                                          ],
@@ -6333,6 +6433,7 @@
                                                                       "Resource_Id":  "bigint",
                                                                       "Value":  "nvarchar"
                                                                   },
+                                                      "hasValidTo":  false,
                                                       "primaryKey":  [
                                                                          "EntityType_Id",
                                                                          "BindingExpressionHash",
@@ -6357,6 +6458,7 @@
                                                                        "ChangedBy_Id":  "bigint",
                                                                        "BaseRule_Id":  "bigint"
                                                                    },
+                                                       "hasValidTo":  false,
                                                        "primaryKey":  [
                                                                           "Id"
                                                                       ],
@@ -6659,6 +6761,7 @@
                                                                       "D3V_Id":  "bigint",
                                                                       "BaseRule_Id":  "bigint"
                                                                   },
+                                                      "hasValidTo":  false,
                                                       "primaryKey":  [
                                                                          "Id"
                                                                      ],
@@ -6705,6 +6808,7 @@
                                                                  "WhenChanged":  "smalldatetime",
                                                                  "ChangedBy_Id":  "bigint"
                                                              },
+                                                 "hasValidTo":  false,
                                                  "primaryKey":  [
                                                                     "Id"
                                                                 ],
@@ -6745,6 +6849,7 @@
                                                                  "Score":  "int",
                                                                  "Rating":  "int"
                                                              },
+                                                 "hasValidTo":  true,
                                                  "primaryKey":  [
                                                                     "ValidTo",
                                                                     "Id"
@@ -6771,6 +6876,7 @@
                                                                   "ChangedBy_Id":  "bigint",
                                                                   "BaseRule_Id":  "bigint"
                                                               },
+                                                  "hasValidTo":  false,
                                                   "primaryKey":  [
                                                                      "Id"
                                                                  ],
@@ -7075,6 +7181,7 @@
                                                                 "D3V_Id":  "bigint",
                                                                 "BaseRule_Id":  "bigint"
                                                             },
+                                                "hasValidTo":  false,
                                                 "primaryKey":  [
                                                                    "Id"
                                                                ],
@@ -7444,6 +7551,7 @@
                                                             "DependsOn_Id":  "bigint",
                                                             "DependsOnOwnerProperty_Id":  "bigint"
                                                         },
+                                            "hasValidTo":  true,
                                             "primaryKey":  [
                                                                "Id"
                                                            ],
@@ -7479,6 +7587,7 @@
                                                                       "ResourceType_Id":  "bigint",
                                                                       "Category_Id":  "bigint"
                                                                   },
+                                                      "hasValidTo":  false,
                                                       "primaryKey":  [
                                                                          "ResourceType_Id",
                                                                          "Category_Id"
@@ -7509,6 +7618,7 @@
                                                             "WhenChanged":  "smalldatetime",
                                                             "ChangedBy_Id":  "bigint"
                                                         },
+                                            "hasValidTo":  false,
                                             "primaryKey":  [
                                                                "Id"
                                                            ],
@@ -7546,6 +7656,7 @@
                                                         "WhenChanged":  "smalldatetime",
                                                         "ChangedBy_Id":  "bigint"
                                                     },
+                                        "hasValidTo":  false,
                                         "primaryKey":  [
                                                            "Id"
                                                        ],
@@ -7624,6 +7735,7 @@
                                                     "WhenChanged":  "smalldatetime",
                                                     "ChangedBy_Id":  "bigint"
                                                 },
+                                    "hasValidTo":  true,
                                     "primaryKey":  [
                                                        "Id"
                                                    ],
@@ -7648,6 +7760,7 @@
                                                            "CompositeRoleCounter":  "int",
                                                            "ResourceTypeCounter":  "int"
                                                        },
+                                           "hasValidTo":  false,
                                            "primaryKey":  [
                                                               "Id"
                                                           ],
@@ -7678,6 +7791,7 @@
                                                                    "WhenChanged":  "smalldatetime",
                                                                    "ChangedBy_Id":  "bigint"
                                                                },
+                                                   "hasValidTo":  false,
                                                    "primaryKey":  [
                                                                       "Id"
                                                                   ],
@@ -7702,6 +7816,7 @@
                                                                "WhenChanged":  "smalldatetime",
                                                                "ChangedBy_Id":  "bigint"
                                                            },
+                                               "hasValidTo":  false,
                                                "primaryKey":  [
                                                                   "Id"
                                                               ],
@@ -7747,6 +7862,7 @@
                                                            "WhenChanged":  "smalldatetime",
                                                            "ChangedBy_Id":  "bigint"
                                                        },
+                                           "hasValidTo":  false,
                                            "primaryKey":  [
                                                               "Id"
                                                           ],
@@ -8057,6 +8173,7 @@
                                                               "D3V_Id":  "bigint",
                                                               "BaseRule_Id":  "bigint"
                                                           },
+                                              "hasValidTo":  false,
                                               "primaryKey":  [
                                                                  "Id"
                                                              ],
@@ -8540,6 +8657,7 @@
                                                           "D3U_Id":  "bigint",
                                                           "D3V_Id":  "bigint"
                                                       },
+                                          "hasValidTo":  true,
                                           "primaryKey":  [
                                                              "Id"
                                                          ],
@@ -8563,6 +8681,7 @@
                                                                     "SingleRole_Id":  "bigint",
                                                                     "Category_Id":  "bigint"
                                                                 },
+                                                    "hasValidTo":  false,
                                                     "primaryKey":  [
                                                                        "SingleRole_Id",
                                                                        "Category_Id"
@@ -8599,6 +8718,7 @@
                                                              "DisplayName_L15":  "nvarchar",
                                                              "DisplayName_L16":  "nvarchar"
                                                          },
+                                             "hasValidTo":  false,
                                              "primaryKey":  [
                                                                 "Id"
                                                             ]
@@ -8626,6 +8746,7 @@
                                                             "DisplayName_L15":  "nvarchar",
                                                             "DisplayName_L16":  "nvarchar"
                                                         },
+                                            "hasValidTo":  false,
                                             "primaryKey":  [
                                                                "Id"
                                                            ],
@@ -8819,6 +8940,7 @@
                                                               "DisplayName_L15":  "nvarchar",
                                                               "DisplayName_L16":  "nvarchar"
                                                           },
+                                              "hasValidTo":  true,
                                               "foreignKeys":  {
                                                                   "Type":  {
                                                                                "referencedTable":  "UM_EntityTypes",
@@ -8838,7 +8960,8 @@
                                                                   "DataHash":  "int",
                                                                   "ValidFrom":  "datetime2",
                                                                   "ValidTo":  "datetime2"
-                                                              }
+                                                              },
+                                                  "hasValidTo":  true
                                               },
                    "UR_ResourceFiles":  {
                                             "columns":  {
@@ -8852,6 +8975,7 @@
                                                             "ValidFrom":  "datetime2",
                                                             "ValidTo":  "datetime2"
                                                         },
+                                            "hasValidTo":  true,
                                             "primaryKey":  [
                                                                "ValidTo",
                                                                "Id"
@@ -8874,7 +8998,8 @@
                                                                   "ValidTo":  "datetime2",
                                                                   "R1_PK":  "nvarchar",
                                                                   "R2_PK":  "nvarchar"
-                                                              }
+                                                              },
+                                                  "hasValidTo":  true
                                               },
                    "UR_ResourceLinks":  {
                                             "columns":  {
@@ -8884,6 +9009,7 @@
                                                             "ValidFrom":  "datetime2",
                                                             "ValidTo":  "datetime2"
                                                         },
+                                            "hasValidTo":  true,
                                             "foreignKeys":  {
                                                                 "Type":  {
                                                                              "referencedTable":  "UM_EntityAssociations",
@@ -9073,6 +9199,7 @@
                                                         "DisplayName_L15":  "nvarchar",
                                                         "DisplayName_L16":  "nvarchar"
                                                     },
+                                        "hasValidTo":  true,
                                         "primaryKey":  [
                                                            "ValidTo",
                                                            "Id"
@@ -9105,6 +9232,7 @@
                                                                                   "DisplayName_L15":  "nvarchar",
                                                                                   "DisplayName_L16":  "nvarchar"
                                                                               },
+                                                                  "hasValidTo":  false,
                                                                   "primaryKey":  [
                                                                                      "Id"
                                                                                  ]
@@ -9139,6 +9267,7 @@
                                                                            "DisplayName_L15":  "nvarchar",
                                                                            "DisplayName_L16":  "nvarchar"
                                                                        },
+                                                           "hasValidTo":  false,
                                                            "primaryKey":  [
                                                                               "Id"
                                                                           ],
@@ -9179,6 +9308,7 @@
                                                                              "TargetedRisk_Id":  "bigint",
                                                                              "Tags":  "nvarchar"
                                                                          },
+                                                             "hasValidTo":  false,
                                                              "primaryKey":  [
                                                                                 "Id"
                                                                             ],
@@ -9222,6 +9352,7 @@
                                                                        "ReviewComment":  "nvarchar",
                                                                        "AdministratorComment":  "nvarchar"
                                                                    },
+                                                       "hasValidTo":  false,
                                                        "primaryKey":  [
                                                                           "Id"
                                                                       ],
@@ -9498,6 +9629,7 @@
                                                                               "OwnerLastModificationDate":  "smalldatetime",
                                                                               "OwnerLastModificationDateBinding_Id":  "bigint"
                                                                           },
+                                                              "hasValidTo":  false,
                                                               "primaryKey":  [
                                                                                  "Id"
                                                                              ],
@@ -9521,6 +9653,7 @@
                                                                                 "To_Id":  "bigint",
                                                                                 "Comment":  "nvarchar"
                                                                             },
+                                                                "hasValidTo":  false,
                                                                 "primaryKey":  [
                                                                                    "Id"
                                                                                ],
@@ -9537,61 +9670,70 @@
                                                                "OwnerType":  "bigint",
                                                                "Owner_Id":  "bigint",
                                                                "Value":  "tinyint"
-                                                           }
+                                                           },
+                                               "hasValidTo":  false
                                            },
                    "UT_BigInts":  {
                                       "columns":  {
                                                       "Id":  "bigint",
                                                       "Value":  "bigint"
-                                                  }
+                                                  },
+                                      "hasValidTo":  false
                                   },
                    "UT_BigIntsValue":  {
                                            "columns":  {
                                                            "Id":  "bigint",
                                                            "Value":  "bigint",
                                                            "IntValue":  "int"
-                                                       }
+                                                       },
+                                           "hasValidTo":  false
                                        },
                    "UT_BinNvarChar":  {
                                           "columns":  {
                                                           "Id":  "bigint",
                                                           "PrimaryKey":  "nvarchar",
                                                           "Value":  "nvarchar"
-                                                      }
+                                                      },
+                                          "hasValidTo":  false
                                       },
                    "UT_Bits":  {
                                    "columns":  {
                                                    "Id":  "bigint",
                                                    "Value":  "bit"
-                                               }
+                                               },
+                                   "hasValidTo":  false
                                },
                    "UT_BulkAssignedResourceBinaries":  {
                                                            "columns":  {
                                                                            "Id":  "bigint",
                                                                            "Owner_Id":  "bigint",
                                                                            "OwnerType":  "bigint"
-                                                                       }
+                                                                       },
+                                                           "hasValidTo":  false
                                                        },
                    "UT_BulkAssignedResourceNavigations":  {
                                                               "columns":  {
                                                                               "Id":  "bigint",
                                                                               "Owner_Id":  "bigint",
                                                                               "OwnerType":  "bigint"
-                                                                          }
+                                                                          },
+                                                              "hasValidTo":  false
                                                           },
                    "UT_BulkAssignedResourceScalars":  {
                                                           "columns":  {
                                                                           "Id":  "bigint",
                                                                           "Owner_Id":  "bigint",
                                                                           "OwnerType":  "bigint"
-                                                                      }
+                                                                      },
+                                                          "hasValidTo":  false
                                                       },
                    "UT_BulkAssignedResourceTypes":  {
                                                         "columns":  {
                                                                         "Id":  "bigint",
                                                                         "Owner_Id":  "bigint",
                                                                         "OwnerType":  "bigint"
-                                                                    }
+                                                                    },
+                                                        "hasValidTo":  false
                                                     },
                    "UT_BulkDirtyOwners":  {
                                               "columns":  {
@@ -9599,49 +9741,57 @@
                                                               "Owner_Id":  "bigint",
                                                               "PendingWork_Id":  "bigint",
                                                               "BulkDate":  "datetime2"
-                                                          }
+                                                          },
+                                              "hasValidTo":  false
                                           },
                    "UT_ConsolidateProvisioningState":  {
                                                            "columns":  {
                                                                            "Id":  "bigint",
                                                                            "Value":  "tinyint"
-                                                                       }
+                                                                       },
+                                                           "hasValidTo":  false
                                                        },
                    "UT_InsertResourceLinks":  {
                                                   "columns":  {
                                                                   "ChangeOperation":  "int",
                                                                   "R1_Identifier":  "nvarchar",
                                                                   "R2_Identifier":  "nvarchar"
-                                                              }
+                                                              },
+                                                  "hasValidTo":  false
                                               },
                    "UT_Ints":  {
                                    "columns":  {
                                                    "Id":  "bigint",
                                                    "Value":  "int"
-                                               }
+                                               },
+                                   "hasValidTo":  false
                                },
                    "UT_NotificationInstances":  {
                                                     "columns":  {
                                                                     "Notification_Id":  "bigint",
                                                                     "OwnerResource_Id":  "bigint",
                                                                     "LastExecutionDate":  "datetime"
-                                                                }
+                                                                },
+                                                    "hasValidTo":  false
                                                 },
                    "UT_NvarChar":  {
                                        "columns":  {
                                                        "Id":  "bigint",
                                                        "Value":  "nvarchar"
-                                                   }
+                                                   },
+                                       "hasValidTo":  false
                                    },
                    "UT_OnlyId":  {
                                      "columns":  {
                                                      "Id":  "bigint"
-                                                 }
+                                                 },
+                                     "hasValidTo":  false
                                  },
                    "UT_OnlyNVarchar":  {
                                            "columns":  {
                                                            "Value":  "nvarchar"
-                                                       }
+                                                       },
+                                           "hasValidTo":  false
                                        },
                    "UT_ResourceCorrelationKeys":  {
                                                       "columns":  {
@@ -9651,6 +9801,7 @@
                                                                       "Value":  "nvarchar",
                                                                       "NewValue":  "nvarchar"
                                                                   },
+                                                      "hasValidTo":  false,
                                                       "primaryKey":  [
                                                                          "EntityType_Id",
                                                                          "BindingExpressionHash",
@@ -9665,35 +9816,40 @@
                                                             "Identifier":  "nvarchar",
                                                             "Data":  "varbinary",
                                                             "DataHash":  "int"
-                                                        }
+                                                        },
+                                            "hasValidTo":  false
                                         },
                    "UT_ResourceLinks":  {
                                             "columns":  {
                                                             "R1_Id":  "bigint",
                                                             "R2_Id":  "bigint",
                                                             "Type":  "bigint"
-                                                        }
+                                                        },
+                                            "hasValidTo":  false
                                         },
                    "UT_ResourceMonovaluedChanges":  {
                                                         "columns":  {
                                                                         "Id":  "bigint",
                                                                         "Type":  "bigint",
                                                                         "Value":  "bigint"
-                                                                    }
+                                                                    },
+                                                        "hasValidTo":  false
                                                     },
                    "UT_ResourceNvarChar":  {
                                                "columns":  {
                                                                "Id":  "bigint",
                                                                "PrimaryKey":  "nvarchar",
                                                                "Value":  "nvarchar"
-                                                           }
+                                                           },
+                                               "hasValidTo":  false
                                            },
                    "UT_ResourceOrphans":  {
                                               "columns":  {
                                                               "Type":  "bigint",
                                                               "R1_Identifier":  "nvarchar",
                                                               "R2_Identifier":  "nvarchar"
-                                                          }
+                                                          },
+                                              "hasValidTo":  false
                                           },
                    "UT_ResourceRiskScores":  {
                                                  "columns":  {
@@ -9703,6 +9859,7 @@
                                                                  "Rating":  "int",
                                                                  "NewRating":  "int"
                                                              },
+                                                 "hasValidTo":  false,
                                                  "primaryKey":  [
                                                                     "OwnerType",
                                                                     "Score",
@@ -9888,53 +10045,62 @@
                                                         "DisplayName_L14":  "nvarchar",
                                                         "DisplayName_L15":  "nvarchar",
                                                         "DisplayName_L16":  "nvarchar"
-                                                    }
+                                                    },
+                                        "hasValidTo":  true
                                     },
                    "UT_ResourceScalarChanges":  {
                                                     "columns":  {
                                                                     "Id":  "bigint",
                                                                     "Type":  "bigint",
                                                                     "Value":  "nvarchar"
-                                                                }
+                                                                },
+                                                    "hasValidTo":  false
                                                 },
                    "UT_ReviewerIdComments":  {
                                                  "columns":  {
                                                                  "Id":  "bigint",
                                                                  "ReviewerId":  "bigint",
                                                                  "Comment":  "nvarchar"
-                                                             }
+                                                             },
+                                                 "hasValidTo":  false
                                              },
                    "UT_SmallDateTimes":  {
                                              "columns":  {
                                                              "Id":  "bigint",
                                                              "Value":  "smalldatetime"
-                                                         }
+                                                         },
+                                             "hasValidTo":  false
                                          },
                    "UT_SmallInts":  {
                                         "columns":  {
                                                         "Id":  "bigint",
                                                         "Value":  "smallint"
-                                                    }
+                                                    },
+                                        "hasValidTo":  false
                                     },
                    "UT_TempNavigations":  {
                                               "columns":  {
                                                               "Id":  "bigint"
-                                                          }
+                                                          },
+                                              "hasValidTo":  false
                                           },
                    "UT_TempOwner":  {
                                         "columns":  {
                                                         "Owner_Id":  "bigint"
-                                                    }
+                                                    },
+                                        "hasValidTo":  false
                                     },
                    "UT_TempSacalars":  {
                                            "columns":  {
                                                            "Id":  "bigint"
-                                                       }
+                                                       },
+                                           "hasValidTo":  false
                                        },
                    "UT_TempTaskJobInstances":  {
                                                    "columns":  {
                                                                    "Id":  "bigint"
                                                                },
+                                                   "hasValidTo":  false,
                                                    "primaryKey":  [
                                                                       "Id"
                                                                   ]
@@ -9942,13 +10108,15 @@
                    "UT_TempTypes":  {
                                         "columns":  {
                                                         "Id":  "bigint"
-                                                    }
+                                                    },
+                                        "hasValidTo":  false
                                     },
                    "UT_TinyInts":  {
                                        "columns":  {
                                                        "Id":  "bigint",
                                                        "Value":  "tinyint"
-                                                   }
+                                                   },
+                                       "hasValidTo":  false
                                    },
                    "UU_AssociationInstances":  {
                                                    "columns":  {
@@ -9959,6 +10127,7 @@
                                                                    "Direction":  "tinyint",
                                                                    "Universe_Id":  "bigint"
                                                                },
+                                                   "hasValidTo":  false,
                                                    "primaryKey":  [
                                                                       "Id"
                                                                   ],
@@ -10011,6 +10180,7 @@
                                                               "DisplayName_L15":  "nvarchar",
                                                               "DisplayName_L16":  "nvarchar"
                                                           },
+                                              "hasValidTo":  false,
                                               "primaryKey":  [
                                                                  "Id"
                                                              ],
@@ -10068,6 +10238,7 @@
                                                         "DisplayName_L16":  "nvarchar",
                                                         "ColumnNamesMode":  "tinyint"
                                                     },
+                                        "hasValidTo":  false,
                                         "primaryKey":  [
                                                            "Id"
                                                        ]
@@ -10099,6 +10270,7 @@
                                                          "DisplayName_L15":  "nvarchar",
                                                          "DisplayName_L16":  "nvarchar"
                                                      },
+                                         "hasValidTo":  false,
                                          "primaryKey":  [
                                                             "Id"
                                                         ],
@@ -10122,6 +10294,7 @@
                                                                   "ActivityInstance_Id":  "bigint",
                                                                   "Resource_Id":  "bigint"
                                                               },
+                                                  "hasValidTo":  false,
                                                   "primaryKey":  [
                                                                      "ActivityInstance_Id",
                                                                      "Resource_Id"
@@ -10151,6 +10324,7 @@
                                                                 "CC":  "nvarchar",
                                                                 "ChangeSetSummary":  "nvarchar"
                                                             },
+                                                "hasValidTo":  false,
                                                 "primaryKey":  [
                                                                    "Id"
                                                                ],
@@ -10178,6 +10352,7 @@
                                                                       "ActivityInstance_Id":  "bigint",
                                                                       "Actor_Id":  "bigint"
                                                                   },
+                                                      "hasValidTo":  false,
                                                       "foreignKeys":  {
                                                                           "ActivityInstance_Id":  {
                                                                                                       "referencedTable":  "UW_ActivityInstances",
@@ -10207,6 +10382,7 @@
                                                                 "DisplayName_L15":  "nvarchar",
                                                                 "DisplayName_L16":  "nvarchar"
                                                             },
+                                                "hasValidTo":  false,
                                                 "primaryKey":  [
                                                                    "Id"
                                                                ],
@@ -10241,6 +10417,7 @@
                                                                      "DisplayName_L16":  "nvarchar",
                                                                      "Interactive":  "bit"
                                                                  },
+                                                     "hasValidTo":  false,
                                                      "primaryKey":  [
                                                                         "Id"
                                                                     ],
@@ -10275,6 +10452,7 @@
                                                                           "DisplayName_L16":  "nvarchar",
                                                                           "IsBatchActor":  "bit"
                                                                       },
+                                                          "hasValidTo":  false,
                                                           "primaryKey":  [
                                                                              "Id"
                                                                          ],
@@ -10334,6 +10512,7 @@
                                                       "P33":  "nvarchar",
                                                       "IfExpression":  "nvarchar"
                                                   },
+                                      "hasValidTo":  false,
                                       "primaryKey":  [
                                                          "Id"
                                                      ],
@@ -10361,6 +10540,7 @@
                                                       "Linked_Id":  "bigint",
                                                       "Value":  "nvarchar"
                                                   },
+                                      "hasValidTo":  false,
                                       "primaryKey":  [
                                                          "ActivityInstance_Id",
                                                          "Object_Id",
@@ -10404,6 +10584,7 @@
                                                                        "Operator5":  "tinyint",
                                                                        "ComparisonProperty5_Id":  "bigint"
                                                                    },
+                                                       "hasValidTo":  false,
                                                        "primaryKey":  [
                                                                           "Id"
                                                                       ],
@@ -10460,6 +10641,7 @@
                                                                  "FormEntityType_Id":  "bigint",
                                                                  "Identifier":  "varchar"
                                                              },
+                                                 "hasValidTo":  false,
                                                  "primaryKey":  [
                                                                     "Id"
                                                                 ],
@@ -10478,6 +10660,7 @@
                                                         "Aspect_Id":  "bigint",
                                                         "Mode":  "int"
                                                     },
+                                        "hasValidTo":  false,
                                         "primaryKey":  [
                                                            "Id"
                                                        ],
@@ -10508,6 +10691,7 @@
                                                          "EmailAddresses":  "nvarchar",
                                                          "Expression":  "nvarchar"
                                                      },
+                                         "hasValidTo":  false,
                                          "primaryKey":  [
                                                             "Id"
                                                         ],
@@ -10540,6 +10724,7 @@
                                                                 "TargetBinding_Id":  "bigint",
                                                                 "TargetExpression":  "varchar"
                                                             },
+                                                "hasValidTo":  false,
                                                 "primaryKey":  [
                                                                    "Id"
                                                                ],
@@ -10579,6 +10764,7 @@
                                                                 "I40":  "bigint",
                                                                 "I41":  "bigint"
                                                             },
+                                                "hasValidTo":  false,
                                                 "primaryKey":  [
                                                                    "Id"
                                                                ],
@@ -10632,6 +10818,7 @@
                                                         "DisplayName_L16":  "nvarchar",
                                                         "IdentifierPrefix":  "nvarchar"
                                                     },
+                                        "hasValidTo":  false,
                                         "primaryKey":  [
                                                            "Id"
                                                        ],

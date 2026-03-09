@@ -50,7 +50,7 @@
     "Description":         "Description_L1",
     "DisplayName":         "DisplayName_L1",
     "FullName":            "FullName_L1",
-    "InternalDisplayName": "InternalDisplayName_L1"
+    "InternalDisplayName": "DisplayName_L1"
   },
 
   "entityColumnOverrides": {

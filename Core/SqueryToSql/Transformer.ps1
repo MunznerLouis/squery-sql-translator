@@ -205,14 +205,20 @@ class SQueryTransformer {
         if ($null -ne $this.AST.Where) {
             $userWhere = $this.TransformWhereExpr($this.AST.Where, $rootAlias)
         }
-        $typeFilter = $null
+        # Build system filters (type + ValidTo)
+        $sysFilters = [System.Collections.ArrayList]::new()
         if ($null -ne $resEntityConfig -and $resEntityConfig.entityTypeId -gt 0) {
-            $typeFilter = "${rootAlias}.Type = $($resEntityConfig.entityTypeId)"
+            $null = $sysFilters.Add("${rootAlias}.Type = $($resEntityConfig.entityTypeId)")
         }
-        if ($null -ne $typeFilter -and $null -ne $userWhere) {
-            $builder.SetWhere("$typeFilter AND ($userWhere)")
-        } elseif ($null -ne $typeFilter) {
-            $builder.SetWhere($typeFilter)
+        if ($this.Config.TableHasValidTo($this.AST.RootEntity)) {
+            $null = $sysFilters.Add("${rootAlias}.ValidTo > CURRENT_TIMESTAMP")
+        }
+        $sysWhere = if ($sysFilters.Count -gt 0) { $sysFilters.ToArray() -join ' AND ' } else { $null }
+
+        if ($null -ne $sysWhere -and $null -ne $userWhere) {
+            $builder.SetWhere("$sysWhere AND ($userWhere)")
+        } elseif ($null -ne $sysWhere) {
+            $builder.SetWhere($sysWhere)
         } elseif ($null -ne $userWhere) {
             $builder.SetWhere($userWhere)
         }
@@ -287,7 +293,12 @@ class SQueryTransformer {
         } else {
             # Standard single JOIN
             $joinType = if ($navProp.ContainsKey('joinType')) { $navProp.joinType } else { 'LEFT' }
-            $null = $builder.AddJoin("$joinType JOIN $($navProp.targetTable) $alias ON $parentAlias.$($navProp.localKey) = $alias.$($navProp.foreignKey)")
+            $joinOn = "$parentAlias.$($navProp.localKey) = $alias.$($navProp.foreignKey)"
+            # resourceTypeFilter: add AND alias.Type = N to filter by target entity type
+            if ($navProp.ContainsKey('resourceTypeFilter')) {
+                $joinOn += " AND $alias.Type = $($navProp.resourceTypeFilter)"
+            }
+            $null = $builder.AddJoin("$joinType JOIN $($navProp.targetTable) $alias ON $joinOn")
         }
 
         # Track alias -> target entity

@@ -1,12 +1,13 @@
-﻿# WorkspaceInitializer.ps1
+# WorkspaceInitializer.ps1
 # Provides Initialize-Workspace and Update-SQueryEntityTypes cmdlets.
 # Supports CSV import and SQL Server auto-connect for EntityType discovery.
+# One SQL query / one CSV produces both resource-columns.json and resource-nav-props.json.
 
 # ---------------------------------------------------------------------------
 # Private helpers (not exported)
 # ---------------------------------------------------------------------------
 
-# Base-32 encoding for Resource column names: alphabet 0-9, A-V
+# Base-32 encoding for Resource scalar column names (TCI 0-127): C{base32}
 function ConvertTo-RCColumnName {
     param([int]$Index)
     $alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUV'
@@ -20,6 +21,20 @@ function ConvertTo-RCColumnName {
     return 'C' + $result
 }
 
+# Base-32 encoding for Resource I-column names (TCI 128-152): I{base32}
+function ConvertTo-IColumn {
+    param([int]$Index)
+    $offset = $Index - 128
+    if ($offset -lt 0) { return $null }
+    $chars = '0123456789ABCDEFGHIJKLMNOPQRSTUV'
+    if ($offset -lt 32) {
+        return "I$($chars[$offset])"
+    }
+    $high = [Math]::Floor($offset / 32)
+    $low  = $offset % 32
+    return "I$($chars[$high])$($chars[$low])"
+}
+
 # Derive a short alias from a CamelCase/underscore entity name
 # e.g. Directory_FR_User -> dfru, SAP_Person -> sp
 function Get-EntityAlias {
@@ -31,8 +46,17 @@ function Get-EntityAlias {
     return $EntityName.Substring(0, [Math]::Min(4, $EntityName.Length)).ToLower()
 }
 
-# Parse semicolon-delimited CSV and return ordered hashtable of entityName -> config
-# CSV columns: EntityType_Id;Identifier;Property;TargetColumnIndex
+# ---------------------------------------------------------------------------
+# CSV / SQL Server readers
+# Both return @{ entityTypes = ...; navProps = ... }
+#   entityTypes: ordered hashtable entityName -> { entityTypeId, alias, columns }
+#   navProps:    ordered hashtable entityName -> { PropertyName -> { column, isMultiValued, targetEntityType, ... } }
+# ---------------------------------------------------------------------------
+
+# Parse semicolon-delimited CSV.
+# Supports both 4-column (legacy) and 8-column (full) formats.
+# 4-col: EntityType_Id;Identifier;Property;TargetColumnIndex
+# 8-col: EntityType_Id;Identifier;Property;Property_Id;TargetColumnIndex;Property1;Property2;TargetEntityType
 function Read-EntityTypesFromCsv {
     param([string]$CsvPath)
 
@@ -41,7 +65,7 @@ function Read-EntityTypesFromCsv {
         throw "CSV file is empty or has no data rows."
     }
 
-    # Validate expected columns
+    # Detect format: check if extended columns exist
     $firstRow = $rows[0]
     $requiredCols = @('EntityType_Id', 'Identifier', 'Property', 'TargetColumnIndex')
     foreach ($col in $requiredCols) {
@@ -49,28 +73,160 @@ function Read-EntityTypesFromCsv {
             throw "CSV is missing required column '$col'. Expected columns: $($requiredCols -join ';')"
         }
     }
+    $hasExtended = ($null -ne $firstRow.PSObject.Properties['Property_Id'])
 
-    $result = [ordered]@{}
+    # Build entityTypes (scalar columns) and lookup tables for nav props
+    $entityTypes  = [ordered]@{}
+    $entityTypeIds = @{}        # EntityType_Id -> Identifier
+    $propertyById = @{}         # Property_Id -> { entityTypeId, entityType, property, targetColumnIndex, targetEntityType }
+    $associations = @()         # list of @{ property1Id; property2Id }
+
     foreach ($row in $rows) {
         $entityName   = $row.Identifier
         $entityTypeId = [int]$row.EntityType_Id
-        $targetIdx    = [int]$row.TargetColumnIndex
-        $colName      = ConvertTo-RCColumnName -Index $targetIdx
+        $tciRaw       = $row.TargetColumnIndex.Trim()
+        $tci          = if ($tciRaw -match '^-?\d+$') { [int]$tciRaw } else { $null }
 
-        if (-not $result.Contains($entityName)) {
+        $entityTypeIds[$entityTypeId] = $entityName
+
+        if (-not $entityTypes.Contains($entityName)) {
             $alias = Get-EntityAlias -EntityName $entityName
-            $result[$entityName] = [ordered]@{
+            $entityTypes[$entityName] = [ordered]@{
                 entityTypeId = $entityTypeId
                 alias        = $alias
                 columns      = [ordered]@{ Id = 'Id' }
             }
         }
-        $result[$entityName].columns[$row.Property] = $colName
+
+        # Scalar columns: TCI 0-127
+        if ($null -ne $tci -and $tci -ge 0 -and $tci -le 127) {
+            $colName = ConvertTo-RCColumnName -Index $tci
+            $entityTypes[$entityName].columns[$row.Property] = $colName
+        }
+
+        # Extended format: collect property lookups and associations
+        if ($hasExtended) {
+            $propertyId = $row.Property_Id.Trim()
+            $prop1Raw   = if ($null -ne $row.PSObject.Properties['Property1']) { $row.Property1.Trim() } else { '' }
+            $prop2Raw   = if ($null -ne $row.PSObject.Properties['Property2']) { $row.Property2.Trim() } else { '' }
+            $targetET   = if ($null -ne $row.PSObject.Properties['TargetEntityType']) { $row.TargetEntityType.Trim() } else { '' }
+
+            if (-not $propertyById.ContainsKey($propertyId)) {
+                $propertyById[$propertyId] = @{
+                    entityTypeId      = $entityTypeId
+                    entityType        = $entityName
+                    property          = $row.Property
+                    targetColumnIndex = $tci
+                    targetEntityType  = $targetET
+                }
+            }
+
+            if ($prop1Raw -match '^\d+$' -and $prop2Raw -match '^\d+$') {
+                $associations += @{ property1Id = $prop1Raw; property2Id = $prop2Raw }
+            }
+        }
     }
+
+    # Build nav props from extended data
+    $navProps = [ordered]@{}
+    if ($hasExtended) {
+        $navProps = New-NavPropsFromPropertyData -PropertyById $propertyById -Associations $associations -EntityTypeIds $entityTypeIds
+    }
+
+    return @{ entityTypes = $entityTypes; navProps = $navProps }
+}
+
+# Build nav props hashtable from property lookup tables.
+# Returns ordered hashtable: entityName -> { PropertyName -> { column, isMultiValued, targetEntityType, partnerProperty, partnerColumn } }
+function New-NavPropsFromPropertyData {
+    param(
+        [hashtable]$PropertyById,
+        [array]$Associations,
+        [hashtable]$EntityTypeIds
+    )
+
+    # Deduplicate associations
+    $seenAssoc = @{}
+    $uniqueAssoc = @()
+    foreach ($a in $Associations) {
+        $key    = "$($a.property1Id)-$($a.property2Id)"
+        $revKey = "$($a.property2Id)-$($a.property1Id)"
+        if (-not $seenAssoc.ContainsKey($key) -and -not $seenAssoc.ContainsKey($revKey)) {
+            $seenAssoc[$key] = $true
+            $uniqueAssoc += $a
+        }
+    }
+
+    # Build association partner lookup: propertyId -> partner property info
+    $assocPartner = @{}
+    foreach ($a in $uniqueAssoc) {
+        $p1 = $a.property1Id
+        $p2 = $a.property2Id
+        if ($PropertyById.ContainsKey($p1) -and $PropertyById.ContainsKey($p2)) {
+            $assocPartner[$p1] = $PropertyById[$p2]
+            $assocPartner[$p2] = $PropertyById[$p1]
+        }
+    }
+
+    # Build nav props: TCI 128-152 (mono-valued) or TCI -1 (multi-valued)
+    $result = [ordered]@{}
+
+    foreach ($entry in $PropertyById.GetEnumerator()) {
+        $propId = $entry.Key
+        $info   = $entry.Value
+        $tci    = $info.targetColumnIndex
+        $et     = $info.entityType
+
+        if ($null -eq $tci) { continue }
+
+        # Mono-valued nav prop: TCI 128-152 -> I-column
+        if ($tci -ge 128 -and $tci -le 152) {
+            if (-not $result.Contains($et)) {
+                $result[$et] = [ordered]@{}
+            }
+            $iCol = ConvertTo-IColumn -Index $tci
+            $navDef = [ordered]@{
+                column        = $iCol
+                isMultiValued = $false
+            }
+            if ($assocPartner.ContainsKey($propId)) {
+                $partner = $assocPartner[$propId]
+                $navDef['targetEntityType'] = $partner.entityType
+                $navDef['partnerProperty']  = $partner.property
+            }
+            if ($info.targetEntityType -match '^\d+$' -and $EntityTypeIds.ContainsKey([int]$info.targetEntityType)) {
+                $navDef['targetEntityType'] = $EntityTypeIds[[int]$info.targetEntityType]
+            }
+            $result[$et][$info.property] = $navDef
+        }
+        # Multi-valued nav prop: TCI == -1
+        elseif ($tci -eq -1) {
+            if (-not $result.Contains($et)) {
+                $result[$et] = [ordered]@{}
+            }
+            $navDef = [ordered]@{
+                column        = $null
+                isMultiValued = $true
+            }
+            if ($assocPartner.ContainsKey($propId)) {
+                $partner = $assocPartner[$propId]
+                $navDef['targetEntityType']  = $partner.entityType
+                $navDef['partnerProperty']   = $partner.property
+                if ($null -ne $partner.targetColumnIndex -and $partner.targetColumnIndex -ge 128) {
+                    $navDef['partnerColumn'] = ConvertTo-IColumn -Index $partner.targetColumnIndex
+                }
+            }
+            if ($info.targetEntityType -match '^\d+$' -and $EntityTypeIds.ContainsKey([int]$info.targetEntityType)) {
+                $navDef['targetEntityType'] = $EntityTypeIds[[int]$info.targetEntityType]
+            }
+            $result[$et][$info.property] = $navDef
+        }
+    }
+
     return $result
 }
 
-# Connect to SQL Server and run the discovery query, returning the same structure as CSV import
+# Connect to SQL Server and run the discovery query, returning same structure as CSV import
 function Read-EntityTypesFromSqlServer {
     param(
         [string]$ServerInstance,
@@ -104,30 +260,71 @@ function Read-EntityTypesFromSqlServer {
         $cmd.CommandTimeout = 30
         $reader = $cmd.ExecuteReader()
 
-        $result = [ordered]@{}
+        $entityTypes   = [ordered]@{}
+        $entityTypeIds = @{}
+        $propertyById  = @{}
+        $associations  = @()
+
         while ($reader.Read()) {
             $entityName   = $reader['Identifier'].ToString()
             $entityTypeId = [int]$reader['EntityType_Id']
-            $targetIdx    = [int]$reader['TargetColumnIndex']
-            $colName      = ConvertTo-RCColumnName -Index $targetIdx
+            $tciRaw       = $reader['TargetColumnIndex']
+            $tci          = if ($tciRaw -isnot [System.DBNull]) { [int]$tciRaw } else { $null }
 
-            if (-not $result.Contains($entityName)) {
+            $entityTypeIds[$entityTypeId] = $entityName
+
+            if (-not $entityTypes.Contains($entityName)) {
                 $alias = Get-EntityAlias -EntityName $entityName
-                $result[$entityName] = [ordered]@{
+                $entityTypes[$entityName] = [ordered]@{
                     entityTypeId = $entityTypeId
                     alias        = $alias
                     columns      = [ordered]@{ Id = 'Id' }
                 }
             }
-            $result[$entityName].columns[$reader['Property'].ToString()] = $colName
+
+            # Scalar columns: TCI 0-127
+            if ($null -ne $tci -and $tci -ge 0 -and $tci -le 127) {
+                $colName = ConvertTo-RCColumnName -Index $tci
+                $entityTypes[$entityName].columns[$reader['Property'].ToString()] = $colName
+            }
+
+            # Collect property lookups and associations
+            $propertyId = $reader['Property_Id'].ToString()
+            $prop1Val   = $reader['Property1']
+            $prop2Val   = $reader['Property2']
+            $targetET   = if ($reader['TargetEntityType'] -isnot [System.DBNull]) { $reader['TargetEntityType'].ToString() } else { '' }
+
+            if (-not $propertyById.ContainsKey($propertyId)) {
+                $propertyById[$propertyId] = @{
+                    entityTypeId      = $entityTypeId
+                    entityType        = $entityName
+                    property          = $reader['Property'].ToString()
+                    targetColumnIndex = $tci
+                    targetEntityType  = $targetET
+                }
+            }
+
+            if ($prop1Val -isnot [System.DBNull] -and $prop2Val -isnot [System.DBNull]) {
+                $p1s = $prop1Val.ToString()
+                $p2s = $prop2Val.ToString()
+                if ($p1s -match '^\d+$' -and $p2s -match '^\d+$') {
+                    $associations += @{ property1Id = $p1s; property2Id = $p2s }
+                }
+            }
         }
-        return $result
+
+        $navProps = New-NavPropsFromPropertyData -PropertyById $propertyById -Associations $associations -EntityTypeIds $entityTypeIds
+        return @{ entityTypes = $entityTypes; navProps = $navProps }
     } finally {
         $conn.Close()
     }
 }
 
-# Write an entityTypes hashtable to resource-columns.json with UTF-8 BOM
+# ---------------------------------------------------------------------------
+# JSON writers
+# ---------------------------------------------------------------------------
+
+# Write entityTypes hashtable to resource-columns.json with UTF-8 BOM
 function Write-ResourceColumnsJson {
     param([string]$OutputPath, [object]$EntityTypes)
 
@@ -156,6 +353,21 @@ function Write-ResourceColumnsJson {
     [System.IO.File]::WriteAllText($OutputPath, $json, $utf8Bom)
 }
 
+# Write nav props hashtable to resource-nav-props.json with UTF-8 BOM
+function Write-ResourceNavPropsJson {
+    param([string]$OutputPath, [object]$NavProps)
+
+    $outputObj = [ordered]@{
+        description       = 'Resource EntityType navigation properties - auto-generated. DO NOT EDIT.'
+        generatedAt       = (Get-Date -Format 'yyyy-MM-dd')
+        entityTypeNavProps = $NavProps
+    }
+
+    $json = $outputObj | ConvertTo-Json -Depth 10
+    $utf8Bom = [System.Text.UTF8Encoding]::new($true)
+    [System.IO.File]::WriteAllText($OutputPath, $json, $utf8Bom)
+}
+
 # Load existing Custom/resource-columns.json into an ordered hashtable
 function Read-ExistingResourceColumns {
     param([string]$FilePath)
@@ -180,11 +392,44 @@ function Read-ExistingResourceColumns {
 
 # Show summary of imported EntityTypes
 function Show-ImportSummary {
-    param([object]$EntityTypes)
+    param([object]$EntityTypes, [object]$NavProps)
+    $totalNavProps = 0
     foreach ($en in $EntityTypes.Keys) {
         $colCount = $EntityTypes[$en].columns.Count - 1
-        Write-Host "  $en (id=$($EntityTypes[$en].entityTypeId)) : $colCount columns (alias=$($EntityTypes[$en].alias))" -ForegroundColor Gray
+        $navCount = 0
+        if ($null -ne $NavProps -and $NavProps.Contains($en)) {
+            $navCount = @($NavProps[$en].Keys).Count
+        }
+        $totalNavProps += $navCount
+        $navInfo = if ($navCount -gt 0) { ", $navCount nav props" } else { '' }
+        Write-Host "  $en (id=$($EntityTypes[$en].entityTypeId)) : $colCount columns$navInfo (alias=$($EntityTypes[$en].alias))" -ForegroundColor Gray
     }
+    if ($totalNavProps -gt 0) {
+        Write-Host "  Total navigation properties: $totalNavProps" -ForegroundColor Gray
+    }
+}
+
+# Helper: write both output files to Configs/Custom/
+function Write-ImportResults {
+    param(
+        [string]$CustomDir,
+        [object]$EntityTypes,
+        [object]$NavProps
+    )
+
+    if (-not (Test-Path $CustomDir)) {
+        New-Item -ItemType Directory -Path $CustomDir -Force | Out-Null
+    }
+
+    $rcPath = Join-Path $CustomDir 'resource-columns.json'
+    Write-ResourceColumnsJson -OutputPath $rcPath -EntityTypes $EntityTypes
+
+    if ($null -ne $NavProps -and $NavProps.Count -gt 0) {
+        $navPath = Join-Path $CustomDir 'resource-nav-props.json'
+        Write-ResourceNavPropsJson -OutputPath $navPath -NavProps $NavProps
+        return @{ rcPath = $rcPath; navPath = $navPath }
+    }
+    return @{ rcPath = $rcPath; navPath = $null }
 }
 
 # ---------------------------------------------------------------------------
@@ -196,12 +441,16 @@ function Show-ImportSummary {
 Guided first-time setup for SQuery-SQL-Translator.
 
 .DESCRIPTION
-Interactive wizard that generates Configs/Custom/resource-columns.json from
-either a direct SQL Server connection or a CSV file exported from SSMS.
+Interactive wizard that generates Resource EntityType configs from either a
+direct SQL Server connection or a CSV file exported from SSMS.
+Produces two files:
+  - Configs/Custom/resource-columns.json   (scalar column mappings)
+  - Configs/Default/resource-nav-props.json (navigation property definitions)
 Run this once per project before using Convert-SQueryToSql with Resource EntityTypes.
 
 .PARAMETER CsvPath
-Path to a semicolon-delimited CSV file (columns: EntityType_Id;Identifier;Property;TargetColumnIndex).
+Path to a semicolon-delimited CSV file.
+Columns: EntityType_Id;Identifier;Property;Property_Id;TargetColumnIndex;Property1;Property2;TargetEntityType
 Skips the interactive menu and imports directly.
 
 .PARAMETER ServerInstance
@@ -249,6 +498,7 @@ function Initialize-Workspace {
 
     $configRoot = Split-Path $script:DefaultConfigPath -Parent
     $customDir  = [System.IO.Path]::GetFullPath((Join-Path $configRoot 'Custom'))
+
     $outputPath = Join-Path $customDir 'resource-columns.json'
     $sampleCsv  = [System.IO.Path]::GetFullPath((Join-Path $configRoot '..\SampleData\import_example.csv'))
     $sqlFile    = [System.IO.Path]::GetFullPath((Join-Path $configRoot '..\Scripts\Get-EntityTypeProperties.sql'))
@@ -272,7 +522,7 @@ function Initialize-Workspace {
 
     # Determine import mode
     $mode = $null
-    $entityTypes = $null
+    $importResult = $null
 
     # Non-interactive: params provided directly
     if (-not [string]::IsNullOrWhiteSpace($CsvPath)) {
@@ -284,7 +534,7 @@ function Initialize-Workspace {
     # Interactive: ask the user
     if ($null -eq $mode) {
         Write-Host 'This wizard generates your project-specific EntityType column' -ForegroundColor Gray
-        Write-Host 'mappings for Resource EntityTypes.' -ForegroundColor Gray
+        Write-Host 'mappings and navigation properties for Resource EntityTypes.' -ForegroundColor Gray
         Write-Host ''
         Write-Host 'Output: ' -ForegroundColor Gray -NoNewline
         Write-Host $outputPath -ForegroundColor White
@@ -339,7 +589,7 @@ function Initialize-Workspace {
         Write-Host ''
 
         try {
-            $entityTypes = Read-EntityTypesFromSqlServer -ServerInstance $ServerInstance -Database $Database -Login $Login -Password $Password
+            $importResult = Read-EntityTypesFromSqlServer -ServerInstance $ServerInstance -Database $Database -Login $Login -Password $Password
         } catch {
             Write-Host "  Failed: $($_.Exception.Message)" -ForegroundColor Red
             return
@@ -349,11 +599,12 @@ function Initialize-Workspace {
     # --- MANUAL/CSV mode ---
     if ($mode -eq 'csv') {
         Write-Host 'Step 1: Provide your CSV export.' -ForegroundColor Cyan
-        Write-Host '  Run this query in SSMS and export result as semicolon-delimited CSV:' -ForegroundColor Gray
+        Write-Host '  Run the query from Get-EntityTypeProperties.sql in SSMS' -ForegroundColor Gray
+        Write-Host '  and export result as semicolon-delimited CSV.' -ForegroundColor Gray
         if (Test-Path $sqlFile) {
             Write-Host "  Query file: $sqlFile" -ForegroundColor Gray
         }
-        Write-Host '  Expected columns: EntityType_Id;Identifier;Property;TargetColumnIndex' -ForegroundColor Gray
+        Write-Host '  Expected columns: EntityType_Id;Identifier;Property;Property_Id;TargetColumnIndex;Property1;Property2;TargetEntityType' -ForegroundColor Gray
         if (Test-Path $sampleCsv) {
             Write-Host "  Sample file: $sampleCsv" -ForegroundColor Gray
         }
@@ -378,7 +629,7 @@ function Initialize-Workspace {
         Write-Host ''
 
         try {
-            $entityTypes = Read-EntityTypesFromCsv -CsvPath $CsvPath
+            $importResult = Read-EntityTypesFromCsv -CsvPath $CsvPath
         } catch {
             Write-Host "  Failed: $($_.Exception.Message)" -ForegroundColor Red
             return
@@ -386,22 +637,24 @@ function Initialize-Workspace {
     }
 
     # --- Write output ---
+    $entityTypes = $importResult.entityTypes
+    $navProps    = $importResult.navProps
+
     if ($null -eq $entityTypes -or $entityTypes.Count -eq 0) {
         Write-Host '  No EntityTypes found.' -ForegroundColor Yellow
         return
     }
 
-    if (-not (Test-Path $customDir)) {
-        New-Item -ItemType Directory -Path $customDir -Force | Out-Null
-    }
+    $paths = Write-ImportResults -CustomDir $customDir -EntityTypes $entityTypes -NavProps $navProps
 
-    Write-ResourceColumnsJson -OutputPath $outputPath -EntityTypes $entityTypes
-
-    Show-ImportSummary -EntityTypes $entityTypes
+    Show-ImportSummary -EntityTypes $entityTypes -NavProps $navProps
 
     Write-Host ''
     Write-Host "Imported $($entityTypes.Count) EntityType(s)." -ForegroundColor Green
-    Write-Host "Saved to: $outputPath" -ForegroundColor Green
+    Write-Host "  Columns:    $($paths.rcPath)" -ForegroundColor Green
+    if ($null -ne $paths.navPath) {
+        Write-Host "  Nav props:  $($paths.navPath)" -ForegroundColor Green
+    }
     Write-Host ''
     Write-Host 'You are ready. Run Convert-SQueryToSql -Url <url> to start translating.' -ForegroundColor Cyan
     Write-Host ''
@@ -409,15 +662,16 @@ function Initialize-Workspace {
 
 <#
 .SYNOPSIS
-Import or update Resource EntityType column mappings.
+Import or update Resource EntityType column mappings and navigation properties.
 
 .DESCRIPTION
 Parses a CSV export (or connects to SQL Server) and writes (or merges into)
-Configs/Custom/resource-columns.json. Use -Merge to add new EntityTypes
-without replacing existing ones.
+Configs/Custom/resource-columns.json and Configs/Default/resource-nav-props.json.
+Use -Merge to add new EntityTypes without replacing existing ones.
 
 .PARAMETER CsvPath
-Path to a semicolon-delimited CSV file (columns: EntityType_Id;Identifier;Property;TargetColumnIndex).
+Path to a semicolon-delimited CSV file.
+Columns: EntityType_Id;Identifier;Property;Property_Id;TargetColumnIndex;Property1;Property2;TargetEntityType
 
 .PARAMETER ServerInstance
 SQL Server instance name for auto-connect mode.
@@ -437,7 +691,7 @@ Existing EntityTypes with the same name are updated; others are preserved.
 
 .EXAMPLE
 Update-SQueryEntityTypes -CsvPath ".\export.csv"
-# Replaces Custom/resource-columns.json entirely from CSV.
+# Replaces configs entirely from CSV.
 
 .EXAMPLE
 Update-SQueryEntityTypes -CsvPath ".\additional.csv" -Merge
@@ -445,7 +699,7 @@ Update-SQueryEntityTypes -CsvPath ".\additional.csv" -Merge
 
 .EXAMPLE
 Update-SQueryEntityTypes -ServerInstance "myserver" -Database "Usercube" -Login "sa" -Password "pass"
-# Replaces Custom/resource-columns.json from SQL Server.
+# Replaces configs from SQL Server.
 #>
 function Update-SQueryEntityTypes {
     [CmdletBinding(DefaultParameterSetName='FromCsv')]
@@ -471,6 +725,7 @@ function Update-SQueryEntityTypes {
 
     $configRoot = Split-Path $script:DefaultConfigPath -Parent
     $customDir  = [System.IO.Path]::GetFullPath((Join-Path $configRoot 'Custom'))
+
     $outputPath = Join-Path $customDir 'resource-columns.json'
 
     # Parse EntityTypes from the chosen source
@@ -481,14 +736,17 @@ function Update-SQueryEntityTypes {
                 Write-Error "File not found: $CsvPath"
                 return
             }
-            $newEntityTypes = Read-EntityTypesFromCsv -CsvPath $CsvPath
+            $importResult = Read-EntityTypesFromCsv -CsvPath $CsvPath
         } else {
-            $newEntityTypes = Read-EntityTypesFromSqlServer -ServerInstance $ServerInstance -Database $Database -Login $Login -Password $Password
+            $importResult = Read-EntityTypesFromSqlServer -ServerInstance $ServerInstance -Database $Database -Login $Login -Password $Password
         }
     } catch {
         Write-Error "Failed: $($_.Exception.Message)"
         return
     }
+
+    $newEntityTypes = $importResult.entityTypes
+    $navProps       = $importResult.navProps
 
     if ($newEntityTypes.Count -eq 0) {
         Write-Host 'No EntityTypes found.' -ForegroundColor Yellow
@@ -514,11 +772,7 @@ function Update-SQueryEntityTypes {
         $final[$en] = $newEntityTypes[$en]
     }
 
-    if (-not (Test-Path $customDir)) {
-        New-Item -ItemType Directory -Path $customDir -Force | Out-Null
-    }
-
-    Write-ResourceColumnsJson -OutputPath $outputPath -EntityTypes $final
+    $paths = Write-ImportResults -CustomDir $customDir -EntityTypes $final -NavProps $navProps
 
     # Summary
     if ($added.Count -gt 0) {
@@ -531,5 +785,9 @@ function Update-SQueryEntityTypes {
     if ($unchanged -gt 0) {
         Write-Host "Unchanged: $unchanged" -ForegroundColor Gray
     }
-    Write-Host "Saved $($final.Count) total EntityType(s) to: $outputPath" -ForegroundColor Cyan
+    Write-Host "Saved $($final.Count) total EntityType(s)." -ForegroundColor Cyan
+    Write-Host "  Columns:   $($paths.rcPath)" -ForegroundColor Cyan
+    if ($null -ne $paths.navPath) {
+        Write-Host "  Nav props: $($paths.navPath)" -ForegroundColor Cyan
+    }
 }

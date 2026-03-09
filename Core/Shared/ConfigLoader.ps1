@@ -7,8 +7,9 @@
 #   - correlation.json    (manual)         -- entity-to-table bridge, column renames, nav prop overrides
 #   - operator.json       (required)       -- SQuery operator -> SQL mapping
 #
-# Custom overlay:
-#   - Configs/Custom/resource-columns.json -- merged into resourceEntityTypes
+# Custom overlay (Configs/Custom/, generated from DB export):
+#   - resource-columns.json   -- Resource EntityType scalar column mappings
+#   - resource-nav-props.json -- Resource EntityType navigation properties (I-columns, reverse joins)
 #
 # Performance note:
 #   squery-schema.json and sql-schema.json are large (1-2MB). They are kept as raw
@@ -20,6 +21,7 @@ class ConfigLoader {
     [object]$SqlSchema              # PSCustomObject from sql-schema.json (large)
     [hashtable]$Correlation         # from correlation.json (small, converted)
     [hashtable]$Operators           # from operator.json (small, converted)
+    [object]$ResourceNavProps       # PSCustomObject from resource-nav-props.json (optional)
 
     # Derived data
     [hashtable]$ResourceColumns     # built from correlation.resourceEntityTypes + Custom overlay
@@ -73,6 +75,15 @@ class ConfigLoader {
                 $this.SqlSchema = Get-Content $sqlSchemaPath -Raw | ConvertFrom-Json
             } else {
                 $this.SqlSchema = $null
+            }
+
+            # ---- resource-nav-props.json (optional, PSCustomObject) ----------
+            # Lives in Configs/Custom/ (generated from DB export, not a default)
+            $resNavPropsPath = Join-Path (Split-Path $this.ConfigPath -Parent) "Custom\resource-nav-props.json"
+            if (Test-Path $resNavPropsPath) {
+                $this.ResourceNavProps = Get-Content $resNavPropsPath -Raw | ConvertFrom-Json
+            } else {
+                $this.ResourceNavProps = $null
             }
 
             # ---- Build reverse lookup: tableName -> entityName --------------
@@ -226,6 +237,17 @@ class ConfigLoader {
         throw "Entity '$entityName' not found in configuration"
     }
 
+    # Checks whether the SQL table behind an entity has a ValidTo column.
+    [bool] TableHasValidTo([string]$entityName) {
+        try {
+            $tableMapping = $this.GetTableMapping($entityName)
+            $rawTable = $tableMapping.tableName -replace '^\[dbo\]\.\[' -replace '\]$'
+            $tbl = $this.SqlSchema.tables.$rawTable
+            if ($null -ne $tbl) { return [bool]$tbl.hasValidTo }
+            return $false
+        } catch { return $false }
+    }
+
     # Checks whether a field is allowed on an entity.
     [bool] IsFieldAllowed([string]$entityName, [string]$fieldName) {
         try {
@@ -281,7 +303,8 @@ class ConfigLoader {
     # Priority:
     #   1. Manual overrides in correlation.json navigationPropertyOverrides
     #   2. Auto-deduction from sql-schema.json foreign keys
-    #   3. Resource EntityType generic nav props (correlation.json resourceNavigationProperties)
+    #   3. Resource EntityType nav props from resource-nav-props.json (I-columns, reverse joins)
+    #   4. Resource EntityType generic nav props (correlation.json resourceNavigationProperties)
     # FK convention defaults: localKey = "{navPropName}_Id", foreignKey = "Id"
     [hashtable] GetNavProp([string]$entityName, [string]$navPropName) {
         # 1. Check manual overrides
@@ -292,7 +315,11 @@ class ConfigLoader {
         $result = $this.GetNavPropFromSqlSchema($entityName, $navPropName)
         if ($null -ne $result) { return $result }
 
-        # 3. Resource EntityType generic nav props
+        # 3. Resource EntityType specific nav props (I-column / reverse join)
+        $result = $this.GetNavPropFromResourceNavProps($entityName, $navPropName)
+        if ($null -ne $result) { return $result }
+
+        # 4. Resource EntityType generic nav props
         $result = $this.GetNavPropFromResourceDefaults($entityName, $navPropName)
         if ($null -ne $result) { return $result }
 
@@ -379,6 +406,56 @@ class ConfigLoader {
             targetEntity = $targetEntity
             localKey     = $fkCol
             foreignKey   = $refColumn
+        }
+    }
+
+    # Look up nav prop in resource-nav-props.json (entity-specific Resource nav props).
+    # Handles mono-valued (I-column FK) and multi-valued (reverse join) navigation.
+    hidden [hashtable] GetNavPropFromResourceNavProps([string]$entityName, [string]$navPropName) {
+        if ($null -eq $this.ResourceNavProps -or $null -eq $this.ResourceNavProps.entityTypeNavProps) { return $null }
+
+        $entityNavProps = $this.ResourceNavProps.entityTypeNavProps.$entityName
+        if ($null -eq $entityNavProps) { return $null }
+
+        $navDef = $entityNavProps.$navPropName
+        if ($null -eq $navDef) { return $null }
+
+        $targetET = $navDef.targetEntityType
+        # Look up the target entity's entityTypeId for Type filter
+        $targetConfig = $this.GetResourceEntityConfig($targetET)
+        $targetTypeId = if ($null -ne $targetConfig) { $targetConfig.entityTypeId } else { 0 }
+
+        if ($navDef.isMultiValued) {
+            # Multi-valued: reverse join. The partner entity has the FK pointing back.
+            # e.g., Records on User -> join UserRecord where UserRecord.IXX (partnerColumn) = User.Id
+            $partnerCol = $navDef.partnerColumn
+            if ([string]::IsNullOrWhiteSpace($partnerCol)) { return $null }
+
+            $result = @{
+                targetTable  = '[dbo].[UR_Resources]'
+                targetEntity = $targetET
+                localKey     = 'Id'
+                foreignKey   = $partnerCol
+            }
+            if ($targetTypeId -gt 0) {
+                $result['resourceTypeFilter'] = $targetTypeId
+            }
+            return $result
+        } else {
+            # Mono-valued: I-column FK. Join on parent.IXX = target.Id
+            $iCol = $navDef.column
+            if ([string]::IsNullOrWhiteSpace($iCol)) { return $null }
+
+            $result = @{
+                targetTable  = '[dbo].[UR_Resources]'
+                targetEntity = $targetET
+                localKey     = $iCol
+                foreignKey   = 'Id'
+            }
+            if ($targetTypeId -gt 0) {
+                $result['resourceTypeFilter'] = $targetTypeId
+            }
+            return $result
         }
     }
 

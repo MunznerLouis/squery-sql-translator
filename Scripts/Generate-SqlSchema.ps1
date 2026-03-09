@@ -61,9 +61,11 @@ foreach ($line in $lines) {
 
     if (-not $tables.Contains($tableName)) {
         $tables[$tableName] = [ordered]@{
-            columns = [ordered]@{}
+            columns    = [ordered]@{}
+            hasValidTo = $false
         }
     }
+    if ($columnName -eq 'ValidTo') { $tables[$tableName].hasValidTo = $true }
     $tables[$tableName].columns[$columnName] = $dataType
 }
 
