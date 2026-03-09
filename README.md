@@ -67,21 +67,14 @@ See [Configuration Guide](Docs/CONFIGURATION.md) for details.
 
 ## 🤝 Usage for Teams
 
-### For End Users
-
 1. Clone this repository
 2. Copy a template from `Configs/templates/`
 3. Edit with your database schema
 4. Use the translator with your config
 
-### For Administrators
+## ❓ How It Works
 
-1. Fork this repository
-2. Customize `Configs/default/` with your company's database
-3. Distribute your fork to your team
-4. Team members use it directly without configuration
-
-See [Configuration Guide](Docs/CONFIGURATION.md) for team setup.
+![Pipeline](docs/pipeline.svg)
 
 ## 🔧 Examples
 

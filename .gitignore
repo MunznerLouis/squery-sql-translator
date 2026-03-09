@@ -3,3 +3,4 @@
 .sample_data/
 Configs/Custom/
 Tests/
+Scripts/Get-DbSchema.sql
