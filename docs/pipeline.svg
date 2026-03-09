@@ -1,0 +1,196 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 720" font-family="'Segoe UI', Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="grad1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+    <linearGradient id="grad2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="grad3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#0891b2"/>
+    </linearGradient>
+    <linearGradient id="grad4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f43f5e"/>
+      <stop offset="100%" stop-color="#e11d48"/>
+    </linearGradient>
+    <linearGradient id="grad5" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="grad6" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="gradConfig" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1100" height="720" fill="url(#bg)" rx="16"/>
+
+  <!-- Title -->
+  <text x="550" y="45" text-anchor="middle" fill="#f8fafc" font-size="22" font-weight="700" letter-spacing="1">SQuery → SQL Pipeline</text>
+  <text x="550" y="68" text-anchor="middle" fill="#64748b" font-size="13">How a SQuery URL becomes a parameterized SQL query</text>
+
+  <!-- ============================================= -->
+  <!-- INPUT BOX (top) -->
+  <!-- ============================================= -->
+  <rect x="80" y="90" width="940" height="52" rx="12" fill="#1e293b" stroke="#334155" stroke-width="1" filter="url(#shadow)"/>
+  <text x="100" y="114" fill="#94a3b8" font-size="11" font-weight="600">INPUT URL</text>
+  <text x="100" y="132" fill="#cbd5e1" font-size="11" font-family="'Cascadia Code', 'Fira Code', monospace">...?squery=join+Role+r+select+Id,+r.DisplayName+where+(OwnerType=2015)+order+by+Id+desc</text>
+
+  <!-- ============================================= -->
+  <!-- STEP CARDS ROW 1 -->
+  <!-- ============================================= -->
+
+  <!-- Arrow down from input -->
+  <path d="M 550 142 L 550 165" stroke="#475569" stroke-width="2" marker-end="url(#arrowDown)"/>
+  <defs><marker id="arrowDown" markerWidth="8" markerHeight="6" refX="4" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#475569"/></marker></defs>
+
+  <!-- Step 1: Lexer -->
+  <g filter="url(#shadow)">
+    <rect x="55" y="175" width="230" height="150" rx="16" fill="url(#grad1)" opacity="0.95"/>
+    <text x="170" y="205" text-anchor="middle" fill="#fff" font-size="28">🔤</text>
+    <text x="170" y="232" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">Lexer</text>
+    <text x="170" y="254" text-anchor="middle" fill="#ffedd5" font-size="11">Splits the raw text into tokens</text>
+    <rect x="75" y="268" width="190" height="42" rx="8" fill="#00000030"/>
+    <text x="170" y="285" text-anchor="middle" fill="#fed7aa" font-size="10" font-family="'Cascadia Code', monospace">join  Role  r  select</text>
+    <text x="170" y="301" text-anchor="middle" fill="#fed7aa" font-size="10" font-family="'Cascadia Code', monospace">Id  ,  r.DisplayName ...</text>
+  </g>
+
+  <!-- Arrow 1→2 -->
+  <path d="M 285 250 L 325 250" stroke="#475569" stroke-width="2" stroke-dasharray="6,4"/>
+  <polygon points="322,246 330,250 322,254" fill="#475569"/>
+
+  <!-- Step 2: Parser -->
+  <g filter="url(#shadow)">
+    <rect x="335" y="175" width="230" height="150" rx="16" fill="url(#grad2)" opacity="0.95"/>
+    <text x="450" y="205" text-anchor="middle" fill="#fff" font-size="28">🌳</text>
+    <text x="450" y="232" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">Parser</text>
+    <text x="450" y="254" text-anchor="middle" fill="#ede9fe" font-size="11">Builds a structured tree (AST)</text>
+    <rect x="355" y="268" width="190" height="42" rx="8" fill="#00000030"/>
+    <text x="450" y="285" text-anchor="middle" fill="#c4b5fd" font-size="10" font-family="'Cascadia Code', monospace">Joins: [Role→r]</text>
+    <text x="450" y="301" text-anchor="middle" fill="#c4b5fd" font-size="10" font-family="'Cascadia Code', monospace">Select: [Id, r.DisplayName]</text>
+  </g>
+
+  <!-- Arrow 2→3 -->
+  <path d="M 565 250 L 605 250" stroke="#475569" stroke-width="2" stroke-dasharray="6,4"/>
+  <polygon points="602,246 610,250 602,254" fill="#475569"/>
+
+  <!-- Step 3: Validator -->
+  <g filter="url(#shadow)">
+    <rect x="615" y="175" width="230" height="150" rx="16" fill="url(#grad4)" opacity="0.95"/>
+    <text x="730" y="205" text-anchor="middle" fill="#fff" font-size="28">✅</text>
+    <text x="730" y="232" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">Validator</text>
+    <text x="730" y="254" text-anchor="middle" fill="#ffe4e6" font-size="11">Checks everything exists in config</text>
+    <rect x="635" y="268" width="190" height="42" rx="8" fill="#00000030"/>
+    <text x="730" y="285" text-anchor="middle" fill="#fda4af" font-size="10" font-family="'Cascadia Code', monospace">Role nav prop? ✓</text>
+    <text x="730" y="301" text-anchor="middle" fill="#fda4af" font-size="10" font-family="'Cascadia Code', monospace">Id field? ✓  aliases? ✓</text>
+  </g>
+
+  <!-- ============================================= -->
+  <!-- CONFIG SIDEBAR -->
+  <!-- ============================================= -->
+  <g filter="url(#shadow)">
+    <rect x="870" y="175" width="175" height="150" rx="16" fill="url(#gradConfig)" stroke="#334155" stroke-width="1"/>
+    <text x="957" y="205" text-anchor="middle" fill="#94a3b8" font-size="24">⚙️</text>
+    <text x="957" y="228" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="600">Config Files</text>
+    <text x="897" y="252" fill="#64748b" font-size="10">📄 squery-schema.json</text>
+    <text x="897" y="270" fill="#64748b" font-size="10">📄 sql-schema.json</text>
+    <text x="897" y="288" fill="#64748b" font-size="10">📄 correlation.json</text>
+    <text x="897" y="306" fill="#f97316" font-size="10">📄 resource-columns.json</text>
+    <text x="897" y="322" fill="#f97316" font-size="10">📄 resource-nav-props.json</text>
+  </g>
+
+  <!-- Dotted lines from config to validator and transformer -->
+  <path d="M 870 270 L 845 265" stroke="#334155" stroke-width="1.5" stroke-dasharray="4,4"/>
+  <path d="M 870 290 L 660 425" stroke="#334155" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+  <!-- ============================================= -->
+  <!-- BIG CURVED ARROW turning down -->
+  <!-- ============================================= -->
+  <path d="M 730 325 C 730 380, 730 380, 660 400" stroke="#475569" stroke-width="2" fill="none" stroke-dasharray="6,4"/>
+  <polygon points="663,396 657,403 666,403" fill="#475569"/>
+
+  <!-- ============================================= -->
+  <!-- STEP CARDS ROW 2 -->
+  <!-- ============================================= -->
+
+  <!-- Step 4: Transformer -->
+  <g filter="url(#shadow)">
+    <rect x="435" y="390" width="230" height="170" rx="16" fill="url(#grad5)" opacity="0.95"/>
+    <text x="550" y="420" text-anchor="middle" fill="#fff" font-size="28">🔀</text>
+    <text x="550" y="447" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">Transformer</text>
+    <text x="550" y="467" text-anchor="middle" fill="#d1fae5" font-size="11">Maps SQuery names → SQL names</text>
+    <rect x="455" y="480" width="190" height="65" rx="8" fill="#00000030"/>
+    <text x="550" y="497" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="'Cascadia Code', monospace">Role → UP_SingleRoles</text>
+    <text x="550" y="513" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="'Cascadia Code', monospace">DisplayName → DisplayName_L1</text>
+    <text x="550" y="529" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="'Cascadia Code', monospace">OwnerType=2015 → @p1</text>
+  </g>
+
+  <!-- Arrow 4→5 -->
+  <path d="M 435 475 L 395 475" stroke="#475569" stroke-width="2" stroke-dasharray="6,4"/>
+  <polygon points="398,471 390,475 398,479" fill="#475569"/>
+
+  <!-- Step 5: SQL Builder -->
+  <g filter="url(#shadow)">
+    <rect x="155" y="390" width="230" height="170" rx="16" fill="url(#grad6)" opacity="0.95"/>
+    <text x="270" y="420" text-anchor="middle" fill="#fff" font-size="28">🔧</text>
+    <text x="270" y="447" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">SQL Builder</text>
+    <text x="270" y="467" text-anchor="middle" fill="#dbeafe" font-size="11">Assembles the final query</text>
+    <rect x="175" y="480" width="190" height="65" rx="8" fill="#00000030"/>
+    <text x="270" y="497" text-anchor="middle" fill="#93c5fd" font-size="10" font-family="'Cascadia Code', monospace">SELECT + FROM</text>
+    <text x="270" y="513" text-anchor="middle" fill="#93c5fd" font-size="10" font-family="'Cascadia Code', monospace">+ LEFT JOIN + WHERE</text>
+    <text x="270" y="529" text-anchor="middle" fill="#93c5fd" font-size="10" font-family="'Cascadia Code', monospace">+ ORDER BY → final SQL</text>
+  </g>
+
+  <!-- Arrow down from builder -->
+  <path d="M 270 560 L 270 585" stroke="#475569" stroke-width="2"/>
+  <polygon points="266,582 270,590 274,582" fill="#475569"/>
+
+  <!-- ============================================= -->
+  <!-- OUTPUT BOX (bottom) -->
+  <!-- ============================================= -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="595" width="940" height="105" rx="14" fill="#0f172a" stroke="#10b981" stroke-width="1.5"/>
+    <text x="100" y="619" fill="#10b981" font-size="12" font-weight="700">✨ OUTPUT</text>
+    <text x="100" y="641" fill="#d1fae5" font-size="12" font-family="'Cascadia Code', 'Fira Code', monospace">SELECT asr.Id, r.DisplayName_L1</text>
+    <text x="100" y="659" fill="#d1fae5" font-size="12" font-family="'Cascadia Code', 'Fira Code', monospace">FROM [dbo].[UP_AssignedSingleRoles] asr</text>
+    <text x="100" y="677" fill="#d1fae5" font-size="12" font-family="'Cascadia Code', 'Fira Code', monospace">LEFT JOIN [dbo].[UP_SingleRoles] r ON asr.Role_Id = r.Id</text>
+    <text x="100" y="695" fill="#d1fae5" font-size="12" font-family="'Cascadia Code', 'Fira Code', monospace">WHERE asr.ValidTo > CURRENT_TIMESTAMP AND (asr.OwnerType = 2015) ORDER BY asr.Id DESC</text>
+  </g>
+
+  <!-- ============================================= -->
+  <!-- Step numbers (floating badges) -->
+  <!-- ============================================= -->
+  <circle cx="80" cy="185" r="14" fill="url(#grad1)" filter="url(#glow)"/>
+  <text x="80" y="190" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">1</text>
+
+  <circle cx="360" cy="185" r="14" fill="url(#grad2)" filter="url(#glow)"/>
+  <text x="360" y="190" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">2</text>
+
+  <circle cx="640" cy="185" r="14" fill="url(#grad4)" filter="url(#glow)"/>
+  <text x="640" y="190" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">3</text>
+
+  <circle cx="460" cy="400" r="14" fill="url(#grad5)" filter="url(#glow)"/>
+  <text x="460" y="405" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">4</text>
+
+  <circle cx="180" cy="400" r="14" fill="url(#grad6)" filter="url(#glow)"/>
+  <text x="180" y="405" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">5</text>
+</svg>
