@@ -22,6 +22,9 @@ class SQueryValidator {
     # Alias -> entity name mapping built during validation
     hidden [hashtable]$AliasToEntity
 
+    # Alias -> base entity (before "of type" override) for nav prop fallback
+    hidden [hashtable]$AliasToBaseEntity
+
     # Aliases with unresolved nav props (skip field validation to avoid noise)
     hidden [System.Collections.Generic.HashSet[string]]$UnresolvedAliases
 
@@ -29,11 +32,12 @@ class SQueryValidator {
     hidden static [int]$MaxWhereDepth = 10
 
     SQueryValidator([object]$ast, [object]$config) {
-        $this.AST              = $ast
-        $this.Config           = $config
-        $this.Errors           = [System.Collections.ArrayList]::new()
-        $this.Warnings         = [System.Collections.ArrayList]::new()
-        $this.AliasToEntity    = @{}
+        $this.AST               = $ast
+        $this.Config            = $config
+        $this.Errors            = [System.Collections.ArrayList]::new()
+        $this.Warnings          = [System.Collections.ArrayList]::new()
+        $this.AliasToEntity     = @{}
+        $this.AliasToBaseEntity = @{}
         $this.UnresolvedAliases = [System.Collections.Generic.HashSet[string]]::new(
             [System.StringComparer]::OrdinalIgnoreCase
         )
@@ -137,7 +141,12 @@ class SQueryValidator {
             }
 
             # Check nav prop in config
+            # If "of type" overrode the parent entity, fall back to the base entity for nav prop lookup
             $navProp = $this.Config.GetNavProp($parentEntity, $navPropName)
+            if ($null -eq $navProp -and $this.AliasToBaseEntity.ContainsKey($parentAlias)) {
+                $parentEntity = $this.AliasToBaseEntity[$parentAlias]
+                $navProp = $this.Config.GetNavProp($parentEntity, $navPropName)
+            }
             if ($null -eq $navProp) {
                 $nl = [Environment]::NewLine
                 $msg = "JOIN '${alias}': navigation property '${navPropName}' is not defined for entity '${parentEntity}'.${nl}"
@@ -148,11 +157,16 @@ class SQueryValidator {
             }
 
             # Track alias -> target entity for downstream checks
-            $targetEntity = $navPropName
-            if ($null -ne $navProp -and $navProp.ContainsKey('targetEntity')) {
-                $targetEntity = $navProp.targetEntity
+            # "of type" clause takes priority over nav prop target
+            # When "of type" overrides, store the base entity for fallback nav prop resolution
+            $baseEntity = if ($null -ne $navProp -and $navProp.ContainsKey('targetEntity')) { $navProp.targetEntity } else { $navPropName }
+            $typeFilter = $joinNode.TypeFilter
+            if (-not [string]::IsNullOrWhiteSpace($typeFilter)) {
+                $this.AliasToEntity[$alias] = $typeFilter
+                $this.AliasToBaseEntity[$alias] = $baseEntity
+            } else {
+                $this.AliasToEntity[$alias] = $baseEntity
             }
-            $this.AliasToEntity[$alias] = $targetEntity
         }
     }
 

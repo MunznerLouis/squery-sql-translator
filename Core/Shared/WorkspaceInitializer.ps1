@@ -60,39 +60,61 @@ function Get-EntityAlias {
 function Read-EntityTypesFromCsv {
     param([string]$CsvPath)
 
-    $rows = Import-Csv $CsvPath -Delimiter ';'
+    # Extended 8-column header
+    $extHeader = @('EntityType_Id','Identifier','Property','Property_Id','TargetColumnIndex','Property1','Property2','TargetEntityType')
+    # Legacy 4-column header
+    $legacyHeader = @('EntityType_Id','Identifier','Property','TargetColumnIndex')
+
+    # Detect if CSV has a header row by checking if first line starts with a known column name
+    $firstLine = (Get-Content $CsvPath -TotalCount 1).TrimStart([char]0xFEFF)
+    $firstField = ($firstLine -split ';')[0].Trim()
+    $hasHeader = ($firstField -eq 'EntityType_Id')
+
+    if ($hasHeader) {
+        $rows = Import-Csv $CsvPath -Delimiter ';'
+    } else {
+        # Count columns to pick the right header
+        $colCount = ($firstLine -split ';').Count
+        $header = if ($colCount -ge 8) { $extHeader } else { $legacyHeader }
+        $rows = Import-Csv $CsvPath -Delimiter ';' -Header $header
+    }
+
     if ($rows.Count -eq 0) {
         throw "CSV file is empty or has no data rows."
     }
 
     # Detect format: check if extended columns exist
     $firstRow = $rows[0]
-    $requiredCols = @('EntityType_Id', 'Identifier', 'Property', 'TargetColumnIndex')
-    foreach ($col in $requiredCols) {
-        if ($null -eq $firstRow.PSObject.Properties[$col]) {
-            throw "CSV is missing required column '$col'. Expected columns: $($requiredCols -join ';')"
-        }
-    }
     $hasExtended = ($null -ne $firstRow.PSObject.Properties['Property_Id'])
 
     # Build entityTypes (scalar columns) and lookup tables for nav props
     $entityTypes  = [ordered]@{}
     $entityTypeIds = @{}        # EntityType_Id -> Identifier
-    $propertyById = @{}         # Property_Id -> { entityTypeId, entityType, property, targetColumnIndex, targetEntityType }
+    $propertyById = @{}         # Property_Id -> { ... }
     $associations = @()         # list of @{ property1Id; property2Id }
+    $skippedNative = 0
 
     foreach ($row in $rows) {
-        $entityName   = $row.Identifier
-        $entityTypeId = [int]$row.EntityType_Id
-        $tciRaw       = $row.TargetColumnIndex.Trim()
-        $tci          = if ($tciRaw -match '^-?\d+$') { [int]$tciRaw } else { $null }
+        # Parse EntityType_Id as long (native entities have IDs > 2 billion)
+        $etIdRaw = $row.EntityType_Id.Trim()
+        if ($etIdRaw -notmatch '^\d+$') { continue }
+        $entityTypeId = [long]$etIdRaw
 
-        $entityTypeIds[$entityTypeId] = $entityName
+        # Skip native EntityTypes (high bit set, ID >= 0x80000000)
+        if ($entityTypeId -ge 2147483648) { $skippedNative++; continue }
+
+        $entityName = $row.Identifier.Trim()
+        if ([string]::IsNullOrWhiteSpace($entityName)) { continue }
+
+        $tciRaw = $row.TargetColumnIndex.Trim()
+        $tci    = if ($tciRaw -match '^-?\d+$') { [int]$tciRaw } else { $null }
+
+        $entityTypeIds[[int]$entityTypeId] = $entityName
 
         if (-not $entityTypes.Contains($entityName)) {
             $alias = Get-EntityAlias -EntityName $entityName
             $entityTypes[$entityName] = [ordered]@{
-                entityTypeId = $entityTypeId
+                entityTypeId = [int]$entityTypeId
                 alias        = $alias
                 columns      = [ordered]@{ Id = 'Id' }
             }
@@ -107,13 +129,20 @@ function Read-EntityTypesFromCsv {
         # Extended format: collect property lookups and associations
         if ($hasExtended) {
             $propertyId = $row.Property_Id.Trim()
-            $prop1Raw   = if ($null -ne $row.PSObject.Properties['Property1']) { $row.Property1.Trim() } else { '' }
-            $prop2Raw   = if ($null -ne $row.PSObject.Properties['Property2']) { $row.Property2.Trim() } else { '' }
-            $targetET   = if ($null -ne $row.PSObject.Properties['TargetEntityType']) { $row.TargetEntityType.Trim() } else { '' }
+            # Skip NULL property IDs
+            if ($propertyId -eq 'NULL' -or [string]::IsNullOrWhiteSpace($propertyId)) { continue }
+
+            $prop1Raw = $row.Property1.Trim()
+            $prop2Raw = $row.Property2.Trim()
+            $targetET = $row.TargetEntityType.Trim()
+            # Normalize NULL literals
+            if ($prop1Raw -eq 'NULL') { $prop1Raw = '' }
+            if ($prop2Raw -eq 'NULL') { $prop2Raw = '' }
+            if ($targetET -eq 'NULL') { $targetET = '' }
 
             if (-not $propertyById.ContainsKey($propertyId)) {
                 $propertyById[$propertyId] = @{
-                    entityTypeId      = $entityTypeId
+                    entityTypeId      = [int]$entityTypeId
                     entityType        = $entityName
                     property          = $row.Property
                     targetColumnIndex = $tci
@@ -125,6 +154,10 @@ function Read-EntityTypesFromCsv {
                 $associations += @{ property1Id = $prop1Raw; property2Id = $prop2Raw }
             }
         }
+    }
+
+    if ($skippedNative -gt 0) {
+        Write-Host "  Skipped $skippedNative native EntityType rows (built-in, ID >= 2147483648)" -ForegroundColor Gray
     }
 
     # Build nav props from extended data
@@ -194,8 +227,11 @@ function New-NavPropsFromPropertyData {
                 $navDef['targetEntityType'] = $partner.entityType
                 $navDef['partnerProperty']  = $partner.property
             }
-            if ($info.targetEntityType -match '^\d+$' -and $EntityTypeIds.ContainsKey([int]$info.targetEntityType)) {
-                $navDef['targetEntityType'] = $EntityTypeIds[[int]$info.targetEntityType]
+            if ($info.targetEntityType -match '^\d+$') {
+                $tetId = [long]$info.targetEntityType
+                if ($tetId -lt 2147483648 -and $EntityTypeIds.ContainsKey([int]$tetId)) {
+                    $navDef['targetEntityType'] = $EntityTypeIds[[int]$tetId]
+                }
             }
             $result[$et][$info.property] = $navDef
         }
@@ -216,8 +252,11 @@ function New-NavPropsFromPropertyData {
                     $navDef['partnerColumn'] = ConvertTo-IColumn -Index $partner.targetColumnIndex
                 }
             }
-            if ($info.targetEntityType -match '^\d+$' -and $EntityTypeIds.ContainsKey([int]$info.targetEntityType)) {
-                $navDef['targetEntityType'] = $EntityTypeIds[[int]$info.targetEntityType]
+            if ($info.targetEntityType -match '^\d+$') {
+                $tetId = [long]$info.targetEntityType
+                if ($tetId -lt 2147483648 -and $EntityTypeIds.ContainsKey([int]$tetId)) {
+                    $navDef['targetEntityType'] = $EntityTypeIds[[int]$tetId]
+                }
             }
             $result[$et][$info.property] = $navDef
         }
@@ -264,19 +303,24 @@ function Read-EntityTypesFromSqlServer {
         $entityTypeIds = @{}
         $propertyById  = @{}
         $associations  = @()
+        $skippedNative = 0
 
         while ($reader.Read()) {
-            $entityName   = $reader['Identifier'].ToString()
-            $entityTypeId = [int]$reader['EntityType_Id']
-            $tciRaw       = $reader['TargetColumnIndex']
-            $tci          = if ($tciRaw -isnot [System.DBNull]) { [int]$tciRaw } else { $null }
+            $entityTypeId = [long]$reader['EntityType_Id']
 
-            $entityTypeIds[$entityTypeId] = $entityName
+            # Skip native EntityTypes (high bit set, ID >= 0x80000000)
+            if ($entityTypeId -ge 2147483648) { $skippedNative++; continue }
+
+            $entityName = $reader['Identifier'].ToString()
+            $tciRaw     = $reader['TargetColumnIndex']
+            $tci        = if ($tciRaw -isnot [System.DBNull]) { [int]$tciRaw } else { $null }
+
+            $entityTypeIds[[int]$entityTypeId] = $entityName
 
             if (-not $entityTypes.Contains($entityName)) {
                 $alias = Get-EntityAlias -EntityName $entityName
                 $entityTypes[$entityName] = [ordered]@{
-                    entityTypeId = $entityTypeId
+                    entityTypeId = [int]$entityTypeId
                     alias        = $alias
                     columns      = [ordered]@{ Id = 'Id' }
                 }
@@ -289,14 +333,16 @@ function Read-EntityTypesFromSqlServer {
             }
 
             # Collect property lookups and associations
-            $propertyId = $reader['Property_Id'].ToString()
+            $propIdVal = $reader['Property_Id']
+            if ($propIdVal -is [System.DBNull]) { continue }
+            $propertyId = $propIdVal.ToString()
             $prop1Val   = $reader['Property1']
             $prop2Val   = $reader['Property2']
             $targetET   = if ($reader['TargetEntityType'] -isnot [System.DBNull]) { $reader['TargetEntityType'].ToString() } else { '' }
 
             if (-not $propertyById.ContainsKey($propertyId)) {
                 $propertyById[$propertyId] = @{
-                    entityTypeId      = $entityTypeId
+                    entityTypeId      = [int]$entityTypeId
                     entityType        = $entityName
                     property          = $reader['Property'].ToString()
                     targetColumnIndex = $tci
@@ -311,6 +357,10 @@ function Read-EntityTypesFromSqlServer {
                     $associations += @{ property1Id = $p1s; property2Id = $p2s }
                 }
             }
+        }
+
+        if ($skippedNative -gt 0) {
+            Write-Host "  Skipped $skippedNative native EntityType rows (built-in, ID >= 2147483648)" -ForegroundColor Gray
         }
 
         $navProps = New-NavPropsFromPropertyData -PropertyById $propertyById -Associations $associations -EntityTypeIds $entityTypeIds

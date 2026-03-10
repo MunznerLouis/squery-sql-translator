@@ -152,14 +152,16 @@ class SQueryTransformer {
     [object]$Config         # ConfigLoader
     [int]$ParamCounter
     [hashtable]$Parameters
-    [hashtable]$AliasToEntity   # alias → entity-name for already-resolved joins
+    [hashtable]$AliasToEntity       # alias → entity-name for already-resolved joins
+    [hashtable]$AliasToBaseEntity   # alias → base entity (before "of type" override) for nav prop fallback
 
     SQueryTransformer([object]$ast, [object]$config) {
-        $this.AST           = $ast
-        $this.Config        = $config
-        $this.ParamCounter  = 0
-        $this.Parameters    = @{}
-        $this.AliasToEntity = @{}
+        $this.AST               = $ast
+        $this.Config            = $config
+        $this.ParamCounter      = 0
+        $this.Parameters        = @{}
+        $this.AliasToEntity     = @{}
+        $this.AliasToBaseEntity = @{}
     }
 
     [string] NextParamName() {
@@ -275,7 +277,12 @@ class SQueryTransformer {
         }
 
         # Look up navigation property in config
+        # If "of type" overrode the parent entity, fall back to the base entity for nav prop lookup
         $navProp = $this.Config.GetNavProp($parentEntity, $navPropName)
+        if ($null -eq $navProp -and $this.AliasToBaseEntity.ContainsKey($parentAlias)) {
+            $parentEntity = $this.AliasToBaseEntity[$parentAlias]
+            $navProp = $this.Config.GetNavProp($parentEntity, $navPropName)
+        }
         if ($null -eq $navProp) {
             # Warning already emitted by Validator — skip duplicate here
             # Track the alias anyway so chained joins can reference it
@@ -302,8 +309,16 @@ class SQueryTransformer {
         }
 
         # Track alias -> target entity
-        $targetEntity = if ($navProp.ContainsKey('targetEntity')) { $navProp.targetEntity } else { $navPropName }
-        $this.AliasToEntity[$alias] = $targetEntity
+        # "of type" clause takes priority: join Owner of type Directory_FR_User → alias is Directory_FR_User
+        # When "of type" overrides, store the base entity for fallback nav prop resolution
+        $baseEntity = if ($navProp.ContainsKey('targetEntity')) { $navProp.targetEntity } else { $navPropName }
+        $typeFilter = $joinNode.TypeFilter
+        if (-not [string]::IsNullOrWhiteSpace($typeFilter)) {
+            $this.AliasToEntity[$alias] = $typeFilter
+            $this.AliasToBaseEntity[$alias] = $baseEntity
+        } else {
+            $this.AliasToEntity[$alias] = $baseEntity
+        }
     }
 
     # -- SELECT ----------------------------------------------------------------
