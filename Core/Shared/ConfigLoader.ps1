@@ -1,4 +1,4 @@
-# ConfigLoader.ps1
+﻿# ConfigLoader.ps1
 # Loads and validates configuration files for SQuery-SQL-Translator.
 #
 # Configuration sources (in Configs/Default/):
@@ -24,7 +24,7 @@ class ConfigLoader {
     [object]$ResourceNavProps       # PSCustomObject from resource-nav-props.json (optional)
 
     # Derived data
-    [hashtable]$ResourceColumns     # built from correlation.resourceEntityTypes + Custom overlay
+    [hashtable]$ResourceColumns     # built from Custom/resource-columns.json
 
     # Reverse lookup: raw table name -> entity name
     hidden [hashtable]$TableToEntity
@@ -98,7 +98,7 @@ class ConfigLoader {
             # ---- Build DatabaseMapping (backward compat for Validator) ------
             $this.BuildDatabaseMapping()
 
-            # ---- Build ResourceColumns from correlation + Custom overlay ----
+            # ---- Build ResourceColumns from Custom overlay ------------------
             $this.BuildResourceColumns()
 
             # ---- Validate ---------------------------------------------------
@@ -144,18 +144,10 @@ class ConfigLoader {
         }
     }
 
-    # Build $this.ResourceColumns from correlation.resourceEntityTypes + Custom overlay.
+    # Build $this.ResourceColumns from Configs/Custom/resource-columns.json.
     hidden [void] BuildResourceColumns() {
         $this.ResourceColumns = @{ entityTypes = @{} }
 
-        # Load from correlation.resourceEntityTypes
-        if ($this.Correlation.ContainsKey('resourceEntityTypes')) {
-            foreach ($enName in $this.Correlation.resourceEntityTypes.Keys) {
-                $this.ResourceColumns.entityTypes[$enName] = $this.Correlation.resourceEntityTypes[$enName]
-            }
-        }
-
-        # Custom overlay: Configs/Custom/resource-columns.json
         $customRcPath = Join-Path (Split-Path $this.ConfigPath -Parent) "Custom\resource-columns.json"
         if (Test-Path $customRcPath) {
             $customRcJson = Get-Content $customRcPath -Raw | ConvertFrom-Json
@@ -173,9 +165,12 @@ class ConfigLoader {
     # ======================================================================
 
     [void] ValidateConfigurations() {
-        # Validate correlation has entityToTable
+        # Validate correlation has entityToTable with at least one mapping
         if (-not $this.Correlation.ContainsKey('entityToTable')) {
             throw "correlation.json must contain 'entityToTable' key"
+        }
+        if ($this.Correlation.entityToTable.Count -eq 0) {
+            throw "correlation.json 'entityToTable' is empty. At least one entity-to-table mapping is required."
         }
 
         if (-not $this.Operators.ContainsKey('operators')) {
@@ -304,26 +299,32 @@ class ConfigLoader {
     #   1. Manual overrides in correlation.json navigationPropertyOverrides
     #   2. Auto-deduction from sql-schema.json foreign keys
     #   3. Resource EntityType nav props from resource-nav-props.json (I-columns, reverse joins)
-    #   4. Resource EntityType generic nav props (correlation.json resourceNavigationProperties)
-    # FK convention defaults: localKey = "{navPropName}_Id", foreignKey = "Id"
+    #   4. Resource EntityType generic nav props (resource-nav-props.json + correlation.json fallback)
     [hashtable] GetNavProp([string]$entityName, [string]$navPropName) {
         # 1. Check manual overrides
         $result = $this.GetNavPropFromOverrides($entityName, $navPropName)
-        if ($null -ne $result) { return $result }
 
         # 2. Auto-deduce from sql-schema FK
-        $result = $this.GetNavPropFromSqlSchema($entityName, $navPropName)
-        if ($null -ne $result) { return $result }
+        if ($null -eq $result) { $result = $this.GetNavPropFromSqlSchema($entityName, $navPropName) }
 
         # 3. Resource EntityType specific nav props (I-column / reverse join)
-        $result = $this.GetNavPropFromResourceNavProps($entityName, $navPropName)
-        if ($null -ne $result) { return $result }
+        if ($null -eq $result) { $result = $this.GetNavPropFromResourceNavProps($entityName, $navPropName) }
 
         # 4. Resource EntityType generic nav props
-        $result = $this.GetNavPropFromResourceDefaults($entityName, $navPropName)
-        if ($null -ne $result) { return $result }
+        if ($null -eq $result) { $result = $this.GetNavPropFromResourceDefaults($entityName, $navPropName) }
 
-        return $null
+        if ($null -eq $result) { return $null }
+
+        # Apply FK convention defaults once (localKey = "{navPropName}_Id", foreignKey = "Id")
+        if (-not $result.ContainsKey('localKey'))   { $result['localKey']   = "${navPropName}_Id" }
+        if (-not $result.ContainsKey('foreignKey')) { $result['foreignKey'] = 'Id' }
+
+        # Apply [dbo].[...] prefix on targetTable if not already present
+        if ($result.ContainsKey('targetTable') -and $result.targetTable -notmatch '^\[') {
+            $result.targetTable = "[dbo].[$($result.targetTable)]"
+        }
+
+        return $result
     }
 
     # Returns resource entity config, or $null if not a Resource subtype.
@@ -358,19 +359,8 @@ class ConfigLoader {
 
         $raw = $entityNavProps[$navPropName]
 
-        # Build result with [dbo].[...] prefix on targetTable and FK convention defaults
         $result = @{}
         foreach ($k in $raw.Keys) { $result[$k] = $raw[$k] }
-
-        # Add [dbo].[...] prefix if not already present
-        if ($result.ContainsKey('targetTable') -and $result.targetTable -notmatch '^\[') {
-            $result.targetTable = "[dbo].[$($result.targetTable)]"
-        }
-
-        # Apply FK convention defaults
-        if (-not $result.ContainsKey('localKey'))   { $result['localKey']   = "${navPropName}_Id" }
-        if (-not $result.ContainsKey('foreignKey')) { $result['foreignKey'] = 'Id' }
-
         return $result
     }
 
@@ -459,28 +449,38 @@ class ConfigLoader {
         }
     }
 
-    # Look up nav prop in correlation.json resourceNavigationProperties (generic Resource EntityType nav props).
+    # Look up nav prop in resourceNavigationProperties (generic Resource EntityType nav props).
+    # Checks resource-nav-props.json first (auto-generated), then correlation.json (manual fallback
+    # for structural FK columns like Owner_Id that aren't in UM_EntityProperties).
     # Only applies when the entity is a Resource EntityType (found in ResourceColumns).
     hidden [hashtable] GetNavPropFromResourceDefaults([string]$entityName, [string]$navPropName) {
         # Only applies to Resource EntityTypes
         $resConfig = $this.GetResourceEntityConfig($entityName)
         if ($null -eq $resConfig) { return $null }
 
-        if (-not $this.Correlation.ContainsKey('resourceNavigationProperties')) { return $null }
-        $resNavProps = $this.Correlation.resourceNavigationProperties
-        if (-not $resNavProps.ContainsKey($navPropName)) { return $null }
+        # Try resource-nav-props.json resourceNavigationProperties first (auto-generated)
+        $raw = $null
+        if ($null -ne $this.ResourceNavProps -and $null -ne $this.ResourceNavProps.resourceNavigationProperties) {
+            $rnpDef = $this.ResourceNavProps.resourceNavigationProperties.$navPropName
+            if ($null -ne $rnpDef) {
+                $raw = @{}
+                foreach ($p in $rnpDef.PSObject.Properties) { $raw[$p.Name] = $p.Value }
+            }
+        }
 
-        $raw = $resNavProps[$navPropName]
+        # Fallback to correlation.json (structural FK columns: Owner, MainRecord, etc.)
+        if ($null -eq $raw) {
+            if (-not $this.Correlation.ContainsKey('resourceNavigationProperties')) { return $null }
+            $resNavProps = $this.Correlation.resourceNavigationProperties
+            if (-not $resNavProps.ContainsKey($navPropName)) { return $null }
+            $raw = $resNavProps[$navPropName]
+        }
 
         $result = @{}
         foreach ($k in $raw.Keys) { $result[$k] = $raw[$k] }
 
-        if ($result.ContainsKey('targetTable') -and $result.targetTable -notmatch '^\[') {
-            $result.targetTable = "[dbo].[$($result.targetTable)]"
-        }
-
-        if (-not $result.ContainsKey('localKey'))   { $result['localKey']   = "${navPropName}_Id" }
-        if (-not $result.ContainsKey('foreignKey')) { $result['foreignKey'] = 'Id' }
+        # Flag so Transformer can handle duplicate/entity-ID FK switching
+        $result['isResourceNavProp'] = $true
 
         return $result
     }

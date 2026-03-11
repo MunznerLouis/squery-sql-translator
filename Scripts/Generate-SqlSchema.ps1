@@ -1,4 +1,4 @@
-# Scripts/Generate-SqlSchema.ps1
+﻿# Scripts/Generate-SqlSchema.ps1
 # Generates Configs/Default/sql-schema.json from DB CSV exports:
 #   - .sample_data/ColumnsTables.csv  (TableName;ColumnName;DataType;MaxLength;Nullable;IsIdentity;OrdinalPosition)
 #   - .sample_data/ForeignKeys.csv    (ParentTable;ParentColumn;ReferencedTable;ReferencedColumn;FK_Name;OnDelete;OnUpdate)

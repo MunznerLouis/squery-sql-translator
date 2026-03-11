@@ -1,4 +1,4 @@
-# Scripts/Generate-SquerySchema.ps1
+﻿# Scripts/Generate-SquerySchema.ps1
 # Generates Configs/Default/squery-schema.json from .sample_data/swagger.json
 #
 # For each entity found in swagger (*.Api.Entities.* and *.Api.QueryResults.*),

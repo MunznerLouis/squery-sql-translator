@@ -109,6 +109,9 @@ class SQueryLexer {
                     $null = $sb.Append($sqInput[$this.Pos])
                     $this.Pos++
                 }
+                if ($this.Pos -ge $len) {
+                    throw "Lexer: unclosed single-quoted string starting at position $start. Add a closing ' to the string."
+                }
                 $this.Pos++ # skip closing quote
                 $null = $this.Tokens.Add([SQueryToken]::new('STRING', $sb.ToString(), $start))
                 continue
@@ -122,6 +125,9 @@ class SQueryLexer {
                 while ($this.Pos -lt $len -and $sqInput[$this.Pos] -ne '"') {
                     $null = $sb.Append($sqInput[$this.Pos])
                     $this.Pos++
+                }
+                if ($this.Pos -ge $len) {
+                    throw "Lexer: unclosed double-quoted string starting at position $start. Add a closing `" to the string."
                 }
                 $this.Pos++ # skip closing quote
                 $null = $this.Tokens.Add([SQueryToken]::new('STRING', $sb.ToString(), $start))
@@ -139,7 +145,7 @@ class SQueryLexer {
                 continue
             }
 
-            # Identifiers and keywords (letters, digits, underscore, colon for typed joins like "Workflow_Directory_FR_User:Directory_FR_User")
+            # Identifiers and keywords (letters, digits, underscore, colon for typed joins like "Workflow_<EntityType>:<EntityType>")
             if ([char]::IsLetter($ch) -or $ch -eq '_') {
                 $start = $this.Pos
                 while ($this.Pos -lt $len) {

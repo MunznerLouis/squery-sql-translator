@@ -1,4 +1,4 @@
-# Validator.ps1
+﻿# Validator.ps1
 # Validates SQueryAST against configuration rules (security & semantic layer)
 #
 # Validation checks:
@@ -119,7 +119,7 @@ class SQueryValidator {
                 $navPropName = $entityPath.Substring($dotIdx + 1)
             }
 
-            # Strip colon type-filter suffix (e.g. "Workflow_Directory_FR_User:Directory_FR_User")
+            # Strip colon type-filter suffix (e.g. "Workflow_<EntityType>:<EntityType>")
             if ($navPropName -match ':') {
                 $navPropName = $navPropName.Substring(0, $navPropName.IndexOf(':'))
             }

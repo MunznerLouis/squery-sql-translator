@@ -81,7 +81,7 @@
     },
 
     "AssignedResourceType": {
-      "Role":     { "targetTable": "UP_ResourceTypes", "targetEntity": "ResourceType" },
+      "Role":     { "targetTable": "UP_ResourceTypes", "targetEntity": "ResourceType", "localKey": "ResourceType_Id" },
       "Owner":    { "targetTable": "UR_Resources",     "targetEntity": "Resource"     },
       "Resource": { "targetTable": "UR_Resources",     "targetEntity": "Resource"     }
     },
@@ -95,9 +95,7 @@
       "ActivityInstances":      { "targetTable": "UW_ActivityInstances",      "targetEntity": "UserActivityInstance", "localKey": "Id", "foreignKey": "WorkflowInstance_Id" },
       "AssignedSingleRoles":    { "targetTable": "UP_AssignedSingleRoles",    "targetEntity": "AssignedSingleRole",   "localKey": "Id", "foreignKey": "WorkflowInstance_Id" },
       "AssignedCompositeRoles": { "targetTable": "UP_AssignedCompositeRoles", "targetEntity": "AssignedCompositeRole", "localKey": "Id", "foreignKey": "WorkflowInstance_Id" },
-      "AssignedResourceTypes":  { "targetTable": "UP_AssignedResourceTypes",  "targetEntity": "AssignedResourceType", "localKey": "Id", "foreignKey": "WorkflowInstance_Id" },
-      "Directory_FR_User":          { "targetTable": "UR_Resources", "targetEntity": "Resource", "localKey": "Owner_Id" },
-      "Workflow_Directory_FR_User": { "targetTable": "UR_Resources", "targetEntity": "Resource", "localKey": "Owner_Id" }
+      "AssignedResourceTypes":  { "targetTable": "UP_AssignedResourceTypes",  "targetEntity": "AssignedResourceType", "localKey": "Id", "foreignKey": "WorkflowInstance_Id" }
     },
 
     "Workflow": {
@@ -145,17 +143,6 @@
   },
 
   "resourceNavigationProperties": {
-    "AssignedSingleRoles":            { "targetTable": "UP_AssignedSingleRoles",    "targetEntity": "AssignedSingleRole",    "localKey": "Id", "foreignKey": "Owner_Id" },
-    "AssignedCompositeRoles":         { "targetTable": "UP_AssignedCompositeRoles", "targetEntity": "AssignedCompositeRole", "localKey": "Id", "foreignKey": "Owner_Id" },
-    "ResourceAssignedResourceTypes":  { "targetTable": "UP_AssignedResourceTypes",  "targetEntity": "AssignedResourceType",  "localKey": "Id", "foreignKey": "Owner_Id" },
-    "OwnerAssignedResourceTypes":     { "targetTable": "UP_AssignedResourceTypes",  "targetEntity": "AssignedResourceType",  "localKey": "Id", "foreignKey": "Owner_Id" },
-    "Owner":          { "targetTable": "UR_Resources", "targetEntity": "Resource" },
-    "MainRecord":     { "targetTable": "UR_Resources", "targetEntity": "Resource" },
-    "Organization":   { "targetTable": "UR_Resources", "targetEntity": "Resource" },
-    "Site":           { "targetTable": "UR_Resources", "targetEntity": "Resource" },
-    "PresenceState":  { "targetTable": "UR_Resources", "targetEntity": "Resource" }
-  },
-
-  "resourceEntityTypes": {
+    "Owner": { "targetTable": "UR_Resources", "targetEntity": "Resource" }
   }
 }

@@ -18,7 +18,7 @@
 
 class JoinNode {
     [string]$EntityPath   # "Role", "r.Policy", "WorkflowInstance.Workflow"
-    [string]$TypeFilter   # "Directory_FR_User" from "of type Directory_FR_User" (or $null)
+    [string]$TypeFilter   # "<EntityType>" from "of type <EntityType>" (or $null)
     [string]$Alias        # "r", "rp", "WorkflowInstance"
 }
 
@@ -74,6 +74,7 @@ class NotExpr : WhereExpr {
 
 class SQueryAST {
     [string]$RootEntity
+    [string]$EntityId                   # optional entity ID from URL path (e.g. /Entity/21177)
     [System.Collections.ArrayList]$Joins
     [int]$Top                           # 0 = no TOP clause
     [string[]]$Select
@@ -82,6 +83,7 @@ class SQueryAST {
 
     SQueryAST([string]$rootEntity) {
         $this.RootEntity = $rootEntity
+        $this.EntityId   = $null
         $this.Joins      = [System.Collections.ArrayList]::new()
         $this.Top        = 0
         $this.Select     = @()
@@ -318,7 +320,7 @@ class SQueryParser {
                 $this.Consume()   # consume ')'
             } else {
                 $got = if ($this.Peek()) { $this.Peek().Value } else { 'EOF' }
-                Write-Warning "Parser: missing closing parenthesis ')' in WHERE clause. Got '$got' instead. The expression may be incorrectly grouped."
+                throw "SQueryParser: missing closing parenthesis ')' in WHERE clause at position $(if ($this.Peek()) { $this.Peek().Position } else { 'EOF' }). Got '$got' instead."
             }
             return $expr
         }

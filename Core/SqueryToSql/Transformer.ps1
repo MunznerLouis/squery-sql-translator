@@ -154,14 +154,20 @@ class SQueryTransformer {
     [hashtable]$Parameters
     [hashtable]$AliasToEntity       # alias → entity-name for already-resolved joins
     [hashtable]$AliasToBaseEntity   # alias → base entity (before "of type" override) for nav prop fallback
+    [System.Collections.ArrayList]$JoinValidToAliases  # aliases needing ValidTo > CURRENT_TIMESTAMP
+    [System.Collections.Generic.HashSet[string]]$UsedResourceNavProps  # track first-use of resourceNavigationProperties
 
     SQueryTransformer([object]$ast, [object]$config) {
-        $this.AST               = $ast
-        $this.Config            = $config
-        $this.ParamCounter      = 0
-        $this.Parameters        = @{}
-        $this.AliasToEntity     = @{}
-        $this.AliasToBaseEntity = @{}
+        $this.AST                  = $ast
+        $this.Config               = $config
+        $this.ParamCounter         = 0
+        $this.Parameters           = @{}
+        $this.AliasToEntity        = @{}
+        $this.AliasToBaseEntity    = @{}
+        $this.JoinValidToAliases   = [System.Collections.ArrayList]::new()
+        $this.UsedResourceNavProps = [System.Collections.Generic.HashSet[string]]::new(
+            [System.StringComparer]::OrdinalIgnoreCase
+        )
     }
 
     [string] NextParamName() {
@@ -199,6 +205,13 @@ class SQueryTransformer {
         # SELECT
         if ($this.AST.Select.Length -gt 0) {
             $selectFields = $this.TransformSelect($rootAlias)
+            # When an entity ID is specified, prepend rootAlias.Id to SELECT
+            if (-not [string]::IsNullOrWhiteSpace($this.AST.EntityId)) {
+                $idField = "${rootAlias}.Id"
+                if ($selectFields[0] -ne $idField) {
+                    $selectFields = @($idField) + $selectFields
+                }
+            }
             $builder.AddSelect($selectFields)
         }
 
@@ -207,13 +220,20 @@ class SQueryTransformer {
         if ($null -ne $this.AST.Where) {
             $userWhere = $this.TransformWhereExpr($this.AST.Where, $rootAlias)
         }
-        # Build system filters (type + ValidTo)
+        # Build system filters (entity ID + type + ValidTo)
         $sysFilters = [System.Collections.ArrayList]::new()
+        if (-not [string]::IsNullOrWhiteSpace($this.AST.EntityId)) {
+            $null = $sysFilters.Add("${rootAlias}.Id = '$($this.AST.EntityId)'")
+        }
         if ($null -ne $resEntityConfig -and $resEntityConfig.entityTypeId -gt 0) {
             $null = $sysFilters.Add("${rootAlias}.Type = $($resEntityConfig.entityTypeId)")
         }
         if ($this.Config.TableHasValidTo($this.AST.RootEntity)) {
             $null = $sysFilters.Add("${rootAlias}.ValidTo > CURRENT_TIMESTAMP")
+        }
+        # Add ValidTo filters for joined UR_Resources tables
+        foreach ($jAlias in $this.JoinValidToAliases) {
+            $null = $sysFilters.Add("${jAlias}.ValidTo > CURRENT_TIMESTAMP")
         }
         $sysWhere = if ($sysFilters.Count -gt 0) { $sysFilters.ToArray() -join ' AND ' } else { $null }
 
@@ -264,7 +284,7 @@ class SQueryTransformer {
             $navPropName = $entityPath.Substring($dotIdx + 1)
         }
 
-        # Colon syntax: "Workflow_Directory_FR_User:Directory_FR_User"
+        # Colon syntax: "Workflow_<EntityType>:<EntityType>"
         # Strip the type-filter suffix to get the navigation property name
         if ($navPropName -match ':') {
             $navPropName = $navPropName.Substring(0, $navPropName.IndexOf(':'))
@@ -284,10 +304,22 @@ class SQueryTransformer {
             $navProp = $this.Config.GetNavProp($parentEntity, $navPropName)
         }
         if ($null -eq $navProp) {
-            # Warning already emitted by Validator — skip duplicate here
+            # Warning already emitted by Validator - skip duplicate here
             # Track the alias anyway so chained joins can reference it
             $this.AliasToEntity[$alias] = $navPropName
             return
+        }
+
+        # Resource nav prop FK switching: when the same resourceNavigationProperty is joined
+        # multiple times, or when an entity ID is in the URL, switch foreignKey to Owner_Id.
+        # First occurrence without entity ID uses the configured FK (e.g. Resource_Id).
+        if ($navProp.ContainsKey('isResourceNavProp') -and $navProp.isResourceNavProp) {
+            $rpKey = "${parentAlias}:${navPropName}"
+            $hasEntityId = -not [string]::IsNullOrWhiteSpace($this.AST.EntityId)
+            if ($hasEntityId -or -not $this.UsedResourceNavProps.Add($rpKey)) {
+                # Duplicate or entity-ID context: switch to Owner_Id
+                $navProp['foreignKey'] = 'Owner_Id'
+            }
         }
 
         # resourceSubType: double JOIN for Resource-to-Resource subtype navigation.
@@ -308,8 +340,13 @@ class SQueryTransformer {
             $null = $builder.AddJoin("$joinType JOIN $($navProp.targetTable) $alias ON $joinOn")
         }
 
+        # Track ValidTo for joined UR_Resources tables
+        if ($navProp.targetTable -eq '[dbo].[UR_Resources]') {
+            $null = $this.JoinValidToAliases.Add($alias)
+        }
+
         # Track alias -> target entity
-        # "of type" clause takes priority: join Owner of type Directory_FR_User → alias is Directory_FR_User
+        # "of type" clause takes priority: join Owner of type <EntityType> → alias is <EntityType>
         # When "of type" overrides, store the base entity for fallback nav prop resolution
         $baseEntity = if ($navProp.ContainsKey('targetEntity')) { $navProp.targetEntity } else { $navPropName }
         $typeFilter = $joinNode.TypeFilter

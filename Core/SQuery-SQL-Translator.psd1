@@ -97,8 +97,7 @@
 
 ## v1.1.0
 
-- Resource EntityType support: Directory_FR_User, Workday_Person_FR, SAP_Person and
-  other UR_Resources subtypes resolve to [dbo].[UR_Resources] with C{index} columns.
+- Resource EntityType support: UR_Resources subtypes resolve to [dbo].[UR_Resources] with C{index} columns.
 - EntityType filter injected automatically (INNER JOIN UM_EntityTypes or WHERE Type=N).
 - resourceSubType double-JOIN for Resource-to-Resource subtype navigation.
 - entity-specific aliases in database-mapping.json (asr, rcr, rt, wi, etc.).

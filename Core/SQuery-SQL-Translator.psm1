@@ -114,6 +114,17 @@ function Convert-SQueryToSql {
                         }
                     }
 
+                    # Extract entity ID from URL path (e.g. /api/Resource/Entity/21177)
+                    $pathSegments = $uri.AbsolutePath.Trim('/').Split('/')
+                    $entityId = $null
+                    if ($pathSegments.Count -ge 2) {
+                        $lastSeg = $pathSegments[-1]
+                        if ($lastSeg -match '^\d+$') {
+                            $entityId = $lastSeg
+                            Write-Verbose "Entity ID from URL path: $entityId"
+                        }
+                    }
+
                     # Extract squery= value (ParseQueryString already URL-decodes it)
                     $sqValue = $parsedParams['squery']
                     if ($null -ne $sqValue) {
@@ -145,6 +156,9 @@ function Convert-SQueryToSql {
             Write-Verbose "Parsing tokens into AST..."
             $parser = [SQueryParser]::new($tokens, $RootEntity)
             $ast = $parser.Parse()
+            if ($null -ne $entityId) {
+                $ast.EntityId = $entityId
+            }
             Write-Verbose "AST: $($ast.ToString())"
 
             # VALIDATOR: Validate against configuration
